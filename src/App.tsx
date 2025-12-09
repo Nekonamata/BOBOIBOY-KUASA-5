@@ -6,6 +6,9 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import Ruangan from "./pages/Ruangan";
 import Tentang from "./pages/Tentang";
+import MasterGedung from "./pages/master/MasterGedung";
+import MasterLantai from "./pages/master/MasterLantai";
+import MasterRuangan from "./pages/master/MasterRuangan";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -20,6 +23,9 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/ruangan" element={<Ruangan />} />
           <Route path="/tentang" element={<Tentang />} />
+          <Route path="/master/gedung" element={<MasterGedung />} />
+          <Route path="/master/lantai" element={<MasterLantai />} />
+          <Route path="/master/ruangan" element={<MasterRuangan />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
