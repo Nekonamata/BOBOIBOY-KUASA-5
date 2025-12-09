@@ -1,7 +1,13 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Building2, Menu, X, User, LogIn } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Building2, Menu, X, User, LogIn, ChevronDown, Layers, DoorOpen, Settings } from 'lucide-react';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -29,6 +35,36 @@ const Navbar = () => {
             <Link to="/ruangan" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
               Daftar Ruangan
             </Link>
+            
+            {/* Master Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger className="flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-primary transition-colors outline-none">
+                <Settings className="h-4 w-4" />
+                Master
+                <ChevronDown className="h-3 w-3" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-48">
+                <DropdownMenuItem asChild>
+                  <Link to="/master/gedung" className="flex items-center gap-2 cursor-pointer">
+                    <Building2 className="h-4 w-4" />
+                    Master Gedung
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/master/lantai" className="flex items-center gap-2 cursor-pointer">
+                    <Layers className="h-4 w-4" />
+                    Master Lantai
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/master/ruangan" className="flex items-center gap-2 cursor-pointer">
+                    <DoorOpen className="h-4 w-4" />
+                    Master Ruangan
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             <Link to="/tentang" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
               Tentang
             </Link>
@@ -73,6 +109,36 @@ const Navbar = () => {
               >
                 Daftar Ruangan
               </Link>
+              
+              {/* Master Links Mobile */}
+              <div className="px-4 py-2">
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Master Data</span>
+              </div>
+              <Link
+                to="/master/gedung"
+                className="px-4 py-2 pl-8 text-sm font-medium text-muted-foreground hover:bg-secondary rounded-lg transition-colors flex items-center gap-2"
+                onClick={() => setIsOpen(false)}
+              >
+                <Building2 className="h-4 w-4" />
+                Master Gedung
+              </Link>
+              <Link
+                to="/master/lantai"
+                className="px-4 py-2 pl-8 text-sm font-medium text-muted-foreground hover:bg-secondary rounded-lg transition-colors flex items-center gap-2"
+                onClick={() => setIsOpen(false)}
+              >
+                <Layers className="h-4 w-4" />
+                Master Lantai
+              </Link>
+              <Link
+                to="/master/ruangan"
+                className="px-4 py-2 pl-8 text-sm font-medium text-muted-foreground hover:bg-secondary rounded-lg transition-colors flex items-center gap-2"
+                onClick={() => setIsOpen(false)}
+              >
+                <DoorOpen className="h-4 w-4" />
+                Master Ruangan
+              </Link>
+
               <Link
                 to="/tentang"
                 className="px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-secondary rounded-lg transition-colors"
