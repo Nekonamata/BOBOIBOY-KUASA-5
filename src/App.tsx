@@ -9,6 +9,7 @@ import Tentang from "./pages/Tentang";
 import MasterGedung from "./pages/master/MasterGedung";
 import MasterLantai from "./pages/master/MasterLantai";
 import MasterRuangan from "./pages/master/MasterRuangan";
+import LaporanPeminjaman from "./pages/laporan/LaporanPeminjaman";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +27,7 @@ const App = () => (
           <Route path="/master/gedung" element={<MasterGedung />} />
           <Route path="/master/lantai" element={<MasterLantai />} />
           <Route path="/master/ruangan" element={<MasterRuangan />} />
+          <Route path="/laporan" element={<LaporanPeminjaman />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
