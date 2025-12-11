@@ -7,7 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Building2, Menu, X, User, LogIn, ChevronDown, Layers, DoorOpen, Settings } from 'lucide-react';
+import { Building2, Menu, X, User, LogIn, ChevronDown, Layers, DoorOpen, Settings, FileText } from 'lucide-react';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -65,6 +65,10 @@ const Navbar = () => {
               </DropdownMenuContent>
             </DropdownMenu>
 
+            <Link to="/laporan" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors flex items-center gap-1">
+              <FileText className="h-4 w-4" />
+              Laporan
+            </Link>
             <Link to="/tentang" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
               Tentang
             </Link>
@@ -139,6 +143,14 @@ const Navbar = () => {
                 Master Ruangan
               </Link>
 
+              <Link
+                to="/laporan"
+                className="px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-secondary rounded-lg transition-colors flex items-center gap-2"
+                onClick={() => setIsOpen(false)}
+              >
+                <FileText className="h-4 w-4" />
+                Laporan
+              </Link>
               <Link
                 to="/tentang"
                 className="px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-secondary rounded-lg transition-colors"
