@@ -22,8 +22,8 @@ const Navbar = () => {
               <Building2 className="h-5 w-5 text-primary-foreground" />
             </div>
             <div className="flex flex-col">
-              <span className="text-lg font-bold text-foreground">SIRUS</span>
-              <span className="text-xs text-muted-foreground -mt-1">Peminjaman Ruang Unimus</span>
+              <span className="text-lg font-bold text-foreground">SIPRUS</span>
+              <span className="text-xs text-muted-foreground -mt-1">Sistem Peminjaman Ruang Unimus</span>
             </div>
           </Link>
 
