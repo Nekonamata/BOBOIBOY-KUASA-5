@@ -36,10 +36,10 @@ const Tentang = () => {
                 <Building2 className="h-8 w-8 text-primary-foreground" />
               </div>
               <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4">
-                Tentang SIRUS
+                Tentang SIPRUS
               </h1>
               <p className="text-lg text-muted-foreground">
-                Sistem Informasi Reservasi Ruang Universitas Muhammadiyah Semarang - 
+                Sistem Peminjaman Ruang Universitas Muhammadiyah Semarang - 
                 Platform terpadu untuk peminjaman ruangan kampus yang efisien dan transparan.
               </p>
             </div>
@@ -51,11 +51,11 @@ const Tentang = () => {
           <div className="container mx-auto px-4">
             <div className="max-w-3xl mx-auto">
               <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-6">
-                Apa itu SIRUS?
+                Apa itu SIPRUS?
               </h2>
-              <div className="prose prose-lg text-muted-foreground">
+              <div className="prose prs ose-lg text-muted-foreground">
                 <p className="mb-4">
-                  SIRUS (Sistem Informasi Reservasi Ruang Unimus) adalah platform digital yang dikembangkan 
+                  SIPRUS (Sistem Peminjaman Ruang Unimus) adalah platform digital yang dikembangkan 
                   untuk memudahkan proses peminjaman ruangan di lingkungan kampus Universitas Muhammadiyah Semarang.
                 </p>
                 <p className="mb-4">
@@ -64,7 +64,7 @@ const Tentang = () => {
                   yang mudah digunakan.
                 </p>
                 <p>
-                  Dengan SIRUS, proses peminjaman ruangan yang sebelumnya manual dan memakan waktu 
+                  Dengan SIPRUS, proses peminjaman ruangan yang sebelumnya manual dan memakan waktu 
                   kini dapat dilakukan secara online, cepat, dan terorganisir dengan baik.
                 </p>
               </div>
@@ -80,7 +80,7 @@ const Tentang = () => {
                 Jenis Pengguna
               </h2>
               <p className="text-muted-foreground">
-                SIRUS dirancang untuk melayani berbagai jenis pengguna dengan hak akses yang berbeda
+                SIPRUS dirancang untuk melayani berbagai jenis pengguna dengan hak akses yang berbeda
               </p>
             </div>
 

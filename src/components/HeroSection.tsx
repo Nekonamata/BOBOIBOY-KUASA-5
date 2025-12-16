@@ -33,7 +33,7 @@ const HeroSection = () => {
             </h1>
 
             <p className="text-lg text-muted-foreground max-w-xl">
-              SIRUS memudahkan mahasiswa, dosen, dan staff dalam melakukan 
+              SIPRUS memudahkan mahasiswa, dosen, dan staff dalam melakukan
               peminjaman ruangan kampus secara online. Cepat, transparan, dan terintegrasi.
             </p>
 

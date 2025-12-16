@@ -31,12 +31,14 @@ import {
   TrendingUp,
   Users,
   Clock,
-  CheckCircle2
+  CheckCircle2,
+  Filter
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, startOfYear, endOfYear, parseISO, isWithinInterval } from 'date-fns';
 import { id } from 'date-fns/locale';
 
 type PeriodeType = 'harian' | 'bulanan' | 'tahunan';
+type StatusFilter = 'all' | 'pending' | 'disetujui' | 'ditolak' | 'selesai';
 
 const LaporanPeminjaman = () => {
   const [periodeType, setPeriodeType] = useState<PeriodeType>('bulanan');
@@ -46,6 +48,7 @@ const LaporanPeminjaman = () => {
   const [selectedGedung, setSelectedGedung] = useState<string>('all');
   const [selectedLantai, setSelectedLantai] = useState<string>('all');
   const [selectedRuangan, setSelectedRuangan] = useState<string>('all');
+  const [selectedStatus, setSelectedStatus] = useState<StatusFilter>('all');
 
   const years = useMemo(() => {
     const currentYear = new Date().getFullYear();
@@ -72,6 +75,14 @@ const LaporanPeminjaman = () => {
     return Array.from({ length: daysInMonth }, (_, i) => (i + 1).toString().padStart(2, '0'));
   }, [selectedYear, selectedMonth]);
 
+  const statusOptions = [
+    { value: 'all', label: 'Semua Status' },
+    { value: 'pending', label: 'Pending' },
+    { value: 'disetujui', label: 'Disetujui' },
+    { value: 'ditolak', label: 'Ditolak' },
+    { value: 'selesai', label: 'Selesai' },
+  ];
+
   const filteredRooms = useMemo(() => {
     let filtered = rooms;
     if (selectedGedung !== 'all') {
@@ -97,6 +108,11 @@ const LaporanPeminjaman = () => {
       data = data.filter(p => p.roomId === selectedRuangan);
     }
 
+    // Filter by status
+    if (selectedStatus !== 'all') {
+      data = data.filter(p => p.status === selectedStatus);
+    }
+
     // Filter by period
     data = data.filter(p => {
       const date = parseISO(p.tanggalPinjam);
@@ -116,7 +132,7 @@ const LaporanPeminjaman = () => {
     });
 
     return data;
-  }, [periodeType, selectedYear, selectedMonth, selectedDay, selectedGedung, selectedLantai, selectedRuangan]);
+  }, [periodeType, selectedYear, selectedMonth, selectedDay, selectedGedung, selectedLantai, selectedRuangan, selectedStatus]);
 
   // Statistics
   const stats = useMemo(() => {
@@ -124,6 +140,7 @@ const LaporanPeminjaman = () => {
     const disetujui = filteredData.filter(p => p.status === 'disetujui').length;
     const selesai = filteredData.filter(p => p.status === 'selesai').length;
     const pending = filteredData.filter(p => p.status === 'pending').length;
+    const ditolak = filteredData.filter(p => p.status === 'ditolak').length;
     const uniquePeminjam = new Set(filteredData.map(p => p.peminjam)).size;
 
     const byGedung = filteredData.reduce((acc, p) => {
@@ -139,11 +156,11 @@ const LaporanPeminjaman = () => {
     const byStatus = {
       pending,
       disetujui,
-      ditolak: filteredData.filter(p => p.status === 'ditolak').length,
+      ditolak,
       selesai,
     };
 
-    return { total, disetujui, selesai, pending, uniquePeminjam, byGedung, byRuangan, byStatus };
+    return { total, disetujui, selesai, pending, ditolak, uniquePeminjam, byGedung, byRuangan, byStatus };
   }, [filteredData]);
 
   const resetFilters = () => {
@@ -154,6 +171,7 @@ const LaporanPeminjaman = () => {
     setSelectedGedung('all');
     setSelectedLantai('all');
     setSelectedRuangan('all');
+    setSelectedStatus('all');
   };
 
   const getStatusBadge = (status: Peminjaman['status']) => {
@@ -202,7 +220,7 @@ const LaporanPeminjaman = () => {
             <h1 className="text-3xl font-bold text-foreground">Laporan Peminjaman</h1>
           </div>
           <p className="text-muted-foreground">
-            Lihat dan filter data peminjaman ruangan berdasarkan periode dan lokasi
+            Lihat dan filter data peminjaman ruangan berdasarkan periode, lokasi, dan status
           </p>
         </div>
 
@@ -281,7 +299,7 @@ const LaporanPeminjaman = () => {
               )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
               {/* Gedung */}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground flex items-center gap-2">
@@ -342,6 +360,25 @@ const LaporanPeminjaman = () => {
                 </Select>
               </div>
 
+              {/* Status Filter */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground flex items-center gap-2">
+                  <Filter className="h-4 w-4" /> Status
+                </label>
+                <Select value={selectedStatus} onValueChange={(v) => setSelectedStatus(v as StatusFilter)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Semua Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {statusOptions.map(status => (
+                      <SelectItem key={status.value} value={status.value}>
+                        {status.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               {/* Reset Button */}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-transparent">Reset</label>
@@ -355,7 +392,7 @@ const LaporanPeminjaman = () => {
         </Card>
 
         {/* Statistics Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-6">
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
@@ -365,20 +402,6 @@ const LaporanPeminjaman = () => {
                 </div>
                 <div className="p-3 bg-primary/10 rounded-full">
                   <TrendingUp className="h-5 w-5 text-primary" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Disetujui</p>
-                  <p className="text-2xl font-bold text-green-600">{stats.disetujui}</p>
-                </div>
-                <div className="p-3 bg-green-100 rounded-full">
-                  <CheckCircle2 className="h-5 w-5 text-green-600" />
                 </div>
               </div>
             </CardContent>
@@ -402,11 +425,39 @@ const LaporanPeminjaman = () => {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Peminjam Unik</p>
-                  <p className="text-2xl font-bold text-foreground">{stats.uniquePeminjam}</p>
+                  <p className="text-sm text-muted-foreground">Disetujui</p>
+                  <p className="text-2xl font-bold text-green-600">{stats.disetujui}</p>
                 </div>
-                <div className="p-3 bg-purple-100 rounded-full">
-                  <Users className="h-5 w-5 text-purple-600" />
+                <div className="p-3 bg-green-100 rounded-full">
+                  <CheckCircle2 className="h-5 w-5 text-green-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Ditolak</p>
+                  <p className="text-2xl font-bold text-red-600">{stats.ditolak}</p>
+                </div>
+                <div className="p-3 bg-red-100 rounded-full">
+                  <Clock className="h-5 w-5 text-red-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Selesai</p>
+                  <p className="text-2xl font-bold text-blue-600">{stats.selesai}</p>
+                </div>
+                <div className="p-3 bg-blue-100 rounded-full">
+                  <CheckCircle2 className="h-5 w-5 text-blue-600" />
                 </div>
               </div>
             </CardContent>
@@ -415,9 +466,16 @@ const LaporanPeminjaman = () => {
 
         {/* Period Label */}
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-foreground">
-            Data Peminjaman: {getPeriodeLabel()}
-          </h2>
+          <div>
+            <h2 className="text-xl font-semibold text-foreground">
+              Data Peminjaman: {getPeriodeLabel()}
+            </h2>
+            {selectedStatus !== 'all' && (
+              <p className="text-sm text-muted-foreground mt-1">
+                Filter status: {statusOptions.find(s => s.value === selectedStatus)?.label}
+              </p>
+            )}
+          </div>
           <Badge variant="outline" className="text-base px-4 py-1">
             {filteredData.length} data
           </Badge>
@@ -466,7 +524,7 @@ const LaporanPeminjaman = () => {
                     <TableRow>
                       <TableCell colSpan={10} className="text-center py-12 text-muted-foreground">
                         <FileText className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                        <p>Tidak ada data peminjaman untuk periode ini</p>
+                        <p>Tidak ada data peminjaman untuk filter yang dipilih</p>
                       </TableCell>
                     </TableRow>
                   ) : (

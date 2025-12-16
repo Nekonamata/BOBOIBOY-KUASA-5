@@ -39,7 +39,7 @@ const FeaturesSection = () => {
       <div className="container mx-auto px-4">
         <div className="text-center max-w-2xl mx-auto mb-12">
           <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-            Fitur Unggulan SIRUS
+            Fitur Unggulan SIPRUS
           </h2>
           <p className="text-muted-foreground">
             Sistem peminjaman ruang yang dirancang untuk memudahkan seluruh civitas akademika Unimus

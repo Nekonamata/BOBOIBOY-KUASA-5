@@ -13,12 +13,12 @@ const Footer = () => {
                 <Building2 className="h-5 w-5 text-primary-foreground" />
               </div>
               <div>
-                <span className="text-lg font-bold">SIRUS</span>
-                <p className="text-xs text-background/60">Sistem Reservasi Ruang Unimus</p>
+                <span className="text-lg font-bold">SIPRUS</span>
+                <p className="text-xs text-background/60">Sistem Peminjaman Ruangan Unimus</p>
               </div>
             </Link>
             <p className="text-background/70 text-sm max-w-md">
-              Platform peminjaman ruangan kampus Universitas Muhammadiyah Semarang 
+              Platform peminjaman ruangan kampus Universitas Muhammadiyah Semarang
               yang terintegrasi dan mudah digunakan untuk seluruh civitas akademika.
             </p>
           </div>
@@ -63,7 +63,7 @@ const Footer = () => {
         </div>
 
         <div className="border-t border-background/10 mt-8 pt-8 text-center text-sm text-background/50">
-          <p>&copy; {new Date().getFullYear()} SIRUS - Universitas Muhammadiyah Semarang. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} SIPRUS - Universitas Muhammadiyah Semarang. All rights reserved.</p>
         </div>
       </div>
     </footer>

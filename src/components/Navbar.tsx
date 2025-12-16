@@ -7,7 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Building2, Menu, X, User, LogIn, ChevronDown, Layers, DoorOpen, Settings, FileText } from 'lucide-react';
+import { Building2, Menu, X, User, ChevronDown, DoorOpen, Settings, FileText } from 'lucide-react';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -51,12 +51,6 @@ const Navbar = () => {
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link to="/master/lantai" className="flex items-center gap-2 cursor-pointer">
-                    <Layers className="h-4 w-4" />
-                    Master Lantai
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
                   <Link to="/master/ruangan" className="flex items-center gap-2 cursor-pointer">
                     <DoorOpen className="h-4 w-4" />
                     Master Ruangan
@@ -79,10 +73,6 @@ const Navbar = () => {
             <Button variant="ghost" size="sm" className="gap-2">
               <User className="h-4 w-4" />
               Masuk
-            </Button>
-            <Button size="sm" className="gap-2">
-              <LogIn className="h-4 w-4" />
-              Daftar
             </Button>
           </div>
 
@@ -127,14 +117,6 @@ const Navbar = () => {
                 Master Gedung
               </Link>
               <Link
-                to="/master/lantai"
-                className="px-4 py-2 pl-8 text-sm font-medium text-muted-foreground hover:bg-secondary rounded-lg transition-colors flex items-center gap-2"
-                onClick={() => setIsOpen(false)}
-              >
-                <Layers className="h-4 w-4" />
-                Master Lantai
-              </Link>
-              <Link
                 to="/master/ruangan"
                 className="px-4 py-2 pl-8 text-sm font-medium text-muted-foreground hover:bg-secondary rounded-lg transition-colors flex items-center gap-2"
                 onClick={() => setIsOpen(false)}
@@ -162,10 +144,6 @@ const Navbar = () => {
                 <Button variant="ghost" size="sm" className="flex-1 gap-2">
                   <User className="h-4 w-4" />
                   Masuk
-                </Button>
-                <Button size="sm" className="flex-1 gap-2">
-                  <LogIn className="h-4 w-4" />
-                  Daftar
                 </Button>
               </div>
             </div>
