@@ -5,6 +5,7 @@ import { Users, MapPin, Layers, Wifi, Monitor, Wind, Calendar } from 'lucide-rea
 
 interface RoomCardProps {
   room: Room;
+  onAjukanPeminjaman?: () => void;  // <- TAMBAHKAN PROP INI
 }
 
 const statusConfig = {
@@ -29,7 +30,7 @@ const facilityIcons: Record<string, React.ReactNode> = {
   'AC': <Wind className="h-3 w-3" />,
 };
 
-const RoomCard = ({ room }: RoomCardProps) => {
+const RoomCard = ({ room, onAjukanPeminjaman }: RoomCardProps) => {
   const status = statusConfig[room.status];
 
   return (
@@ -104,11 +105,12 @@ const RoomCard = ({ room }: RoomCardProps) => {
           </div>
         </div>
 
-        {/* Action */}
+        {/* Action Button */}
         <Button
           className="w-full gap-2"
           variant={room.status === 'tersedia' ? 'default' : 'muted'}
           disabled={room.status !== 'tersedia'}
+          onClick={room.status === 'tersedia' ? onAjukanPeminjaman : undefined} // <- TAMBAHKAN INI
         >
           <Calendar className="h-4 w-4" />
           {room.status === 'tersedia' ? 'Ajukan Peminjaman' : 'Tidak Tersedia'}
