@@ -24,8 +24,8 @@
     --muted: 30 15% 92%;
     --muted-foreground: 20 10% 45%;
 
-    --accent: 220 70% 50%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 25 95% 53%; /* Sama dengan primary untuk highlight orange */
+    --accent-foreground: 0 0% 100%; /* Teks putih saat highlight */
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
@@ -39,7 +39,7 @@
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
     --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 240 4.8% 95.9%;
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 220 13% 91%;
@@ -82,7 +82,7 @@
     --muted: 20 15% 20%;
     --muted-foreground: 30 10% 60%;
 
-    --accent: 220 70% 55%;
+    --accent: 25 95% 53%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 70% 50%;
@@ -109,7 +109,7 @@
   }
 
   body {
-    @apply bg-background text-foreground font-sans antialiased;
+    @apply bg-background text-foreground font-sans antialiased overflow-x-hidden;
     font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
   }
 }
@@ -146,6 +146,90 @@
 
   .animate-scale-in {
     animation: scaleIn 0.3s ease-out forwards;
+  }
+
+  /* Modal utilities */
+  .backdrop-blur-sm {
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+
+  .backdrop-blur-md {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  .backdrop-blur-lg {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .backdrop-blur-xl {
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  /* Additional animations */
+  .animate-slide-in {
+    animation: slideIn 0.3s ease-out forwards;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.4s ease-out forwards;
+  }
+
+  .animate-pulse-slow {
+    animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  /* Smooth transitions */
+  .transition-all-smooth {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Modal specific */
+  .modal-overlay {
+    @apply fixed inset-0 bg-black/50 backdrop-blur-sm;
+  }
+
+  .modal-content {
+    @apply fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2;
+  }
+
+  /* Emergency utility classes */
+  .no-scroll {
+    overflow: hidden !important;
+  }
+
+  .allow-scroll {
+    overflow: auto !important;
+  }
+
+  .force-visible {
+    visibility: visible !important;
+    opacity: 1 !important;
+    display: block !important;
+  }
+
+  .force-hidden {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+  }
+  
+  /* FIX: Utility untuk tombol masuk */
+  .nav-button-fix {
+    position: relative !important;
+    z-index: 9999 !important;
+    pointer-events: auto !important;
+  }
+  
+  /* FIX: Custom highlight effect */
+  .highlight-hover:hover {
+    background-color: hsl(var(--accent)) !important;
+    color: hsl(var(--accent-foreground)) !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px hsl(var(--accent) / 0.3);
   }
 }
 
@@ -187,4 +271,217 @@
     opacity: 1;
     transform: scale(1);
   }
+}
+
+/* Tambahan keyframes untuk animasi baru */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background-color: hsl(var(--secondary) / 0.5);
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--primary) / 0.3);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(var(--primary) / 0.5);
+}
+
+/* Selection styling */
+::selection {
+  background-color: hsl(var(--primary) / 0.3);
+  color: hsl(var(--foreground));
+}
+
+/* Untuk browser yang mendukung backdrop-filter */
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .backdrop-blur {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+}
+
+/* ==================== */
+/* NAVBAR CRITICAL FIX - DIPERBAIKI */
+/* ==================== */
+
+/* FIX 1: Pastikan navbar container tidak menghalangi */
+nav[data-navbar="main"] {
+  isolation: isolate;
+}
+
+/* FIX 2: Pastikan semua child navbar bisa diklik */
+nav[data-navbar="main"] * {
+  pointer-events: auto !important;
+  cursor: auto !important;
+}
+
+/* FIX 3: Container auth buttons harus tinggi z-index */
+.hidden.md\:flex.items-center.gap-3 {
+  position: relative !important;
+  z-index: 100 !important;
+}
+
+/* FIX 4: Tombol Masuk khusus - DIPERBAIKI SELECTOR */
+.hidden.md\:flex.items-center.gap-3 button {
+  position: relative !important;
+  z-index: 1000 !important;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+/* FIX 5: Override backdrop-filter jika mengganggu */
+.sticky.top-0.z-50.w-full.border-b.border-border\/50.bg-background\/95.backdrop-blur-xl {
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  pointer-events: auto !important;
+}
+
+/* FIX 7: Emergency override untuk semua button di navbar */
+nav button {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+  position: relative !important;
+}
+
+/* ==================== */
+/* HOVER HIGHLIGHT EFFECT - DIPERBAIKI */
+/* ==================== */
+
+/* Base hover transition */
+button, a {
+  transition: all 0.2s ease !important;
+}
+
+/* Highlight untuk semua button di navbar */
+nav button:hover {
+  background-color: hsl(var(--accent)) !important;
+  color: hsl(var(--accent-foreground)) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px hsl(var(--accent) / 0.2);
+}
+
+/* Tombol masuk khusus highlight */
+.nav-button-fix:hover {
+  background-color: hsl(var(--accent)) !important;
+  color: hsl(var(--accent-foreground)) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px hsl(var(--accent) / 0.2);
+}
+
+/* Link di navbar saat hover */
+nav a:hover {
+  color: hsl(var(--accent)) !important;
+  transform: translateY(-1px);
+}
+
+/* Dropdown item highlight */
+[role="menuitem"]:hover,
+.hover\:bg-accent:hover {
+  background-color: hsl(var(--accent)) !important;
+  color: hsl(var(--accent-foreground)) !important;
+  transform: translateX(4px);
+}
+
+/* Mobile menu highlight */
+@media (max-width: 768px) {
+  .md\\:hidden a:hover,
+  .md\\:hidden button:hover {
+    background-color: hsl(var(--accent) / 0.9) !important;
+    color: hsl(var(--accent-foreground)) !important;
+    transform: translateX(4px);
+  }
+}
+
+/* User dropdown trigger highlight */
+.flex.items-center.gap-2.px-3.py-2.rounded-lg:hover {
+  background-color: hsl(var(--accent)) !important;
+  color: hsl(var(--accent-foreground)) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px hsl(var(--accent) / 0.2);
+}
+
+/* User dropdown item highlight */
+.flex.items-center.gap-3.px-4.py-2:hover {
+  background-color: hsl(var(--accent)) !important;
+  color: hsl(var(--accent-foreground)) !important;
+  transform: translateX(4px);
+  padding-left: 20px;
+}
+
+/* Tab highlight di profil */
+button.flex.items-center.gap-3.w-full.px-3.py-2\.5.rounded-md:hover {
+  background-color: hsl(var(--accent)) !important;
+  color: hsl(var(--accent-foreground)) !important;
+  transform: translateX(4px);
+}
+
+/* Active tab highlight */
+button.flex.items-center.gap-3.w-full.px-3.py-2\.5.rounded-md.bg-primary\/10.text-primary {
+  background-color: hsl(var(--accent) / 0.2) !important;
+  color: hsl(var(--accent)) !important;
+  border-left: 3px solid hsl(var(--accent));
+}
+
+/* Button dengan variant ghost highlight */
+button.bg-transparent:hover {
+  background-color: hsl(var(--accent)) !important;
+  color: hsl(var(--accent-foreground)) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px hsl(var(--accent) / 0.2);
+}
+
+/* Master dropdown trigger highlight */
+button.flex.items-center.gap-1.text-sm.font-medium.text-muted-foreground:hover {
+  color: hsl(var(--accent)) !important;
+  transform: translateY(-1px);
+}
+
+/* Untuk highlight yang lebih subtle (opsional) */
+.highlight-subtle:hover {
+  background-color: hsl(var(--accent) / 0.1) !important;
+  color: hsl(var(--accent)) !important;
+  border-color: hsl(var(--accent) / 0.3) !important;
+}
+
+/* FIX: Agar tombol Masuk bisa diklik */
+.hidden.md\:flex.items-center.gap-3 button:has(svg) {
+  position: relative !important;
+  z-index: 9999 !important;
 }

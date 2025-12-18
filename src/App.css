@@ -1,1 +1,48 @@
-/* Legacy styles - can be removed if not needed */
+/* src/App.css */
+/* Custom global styles that override Tailwind if needed */
+
+/* Fix untuk backdrop blur di Safari */
+@supports not (backdrop-filter: blur(1px)) {
+  .modal-overlay {
+    background-color: rgba(0, 0, 0, 0.7);
+  }
+}
+
+/* Ensure modal is always on top */
+.ReactModal__Overlay {
+  z-index: 9999 !important;
+}
+
+/* Smooth transitions for theme changes */
+* {
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+/* Remove default button focus ring for better custom styling */
+button:focus {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+}
+
+/* Improve form element styling */
+input, textarea, select {
+  @apply transition-all duration-200;
+}
+
+input:focus, textarea:focus, select:focus {
+  @apply ring-2 ring-primary/30 border-primary;
+}
+
+/* Loading spinner animation */
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 3s linear infinite;
+}

@@ -4,25 +4,85 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SIPRUS - Sistem Peminjaman Ruang Kampus Unimus</title>
-    <meta name="description" content="Platform peminjaman ruangan kampus Universitas Muhammadiyah Semarang yang terintegrasi. Cari, booking, dan kelola peminjaman ruang dengan mudah." />
-    <meta name="author" content="Universitas Muhammadiyah Semarang" />
-    <meta name="keywords" content="peminjaman ruang, unimus, universitas muhammadiyah semarang, booking ruangan, kampus" />
-
-    <meta property="og:title" content="SIPRUS - Sistem Peminjaman Ruang Kampus Unimus" />
-    <meta property="og:description" content="Platform peminjaman ruangan kampus Universitas Muhammadiyah Semarang yang terintegrasi." />
-    <meta property="og:type" content="website" />
-    <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
-
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="SIPRUS - Peminjaman Ruang Unimus" />
-    <meta name="twitter:description" content="Platform peminjaman ruangan kampus Universitas Muhammadiyah Semarang yang terintegrasi." />
-    <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
-
-    <link rel="canonical" href="https://siprus.unimus.ac.id" />
+    <!-- ... meta tags lainnya ... -->
   </head>
 
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    
+    <!-- Global Fix Script -->
+    <script>
+      (function() {
+        'use strict';
+        
+        console.log('🔧 Global fix script loaded');
+        
+        // Function untuk cek dan fix duplicate elements
+        function checkAndFixDuplicates() {
+          // Cek duplicate navbar
+          const navs = document.querySelectorAll('nav[data-navbar="main"]');
+          if (navs.length > 1) {
+            console.warn('⚠️ Found duplicate main navbars:', navs.length);
+            // Keep first, remove others
+            for (let i = 1; i < navs.length; i++) {
+              if (navs[i].isConnected) {
+                console.log('Removing duplicate navbar #' + i);
+                navs[i].remove();
+              }
+            }
+          }
+          
+          // Cek duplicate headers
+          const headers = document.querySelectorAll('header');
+          if (headers.length > 0 && navs.length > 0) {
+            // Jika ada header dan navbar, mungkin header adalah duplicate navbar
+            headers.forEach(header => {
+              if (header.isConnected && !header.contains(document.querySelector('nav'))) {
+                header.remove();
+                console.log('Removed stray header');
+              }
+            });
+          }
+          
+          // Cek untuk stuck modals
+          const stuckModals = document.querySelectorAll('.fixed.inset-0.bg-black');
+          if (stuckModals.length > 1) {
+            console.warn('⚠️ Found stuck modals:', stuckModals.length);
+            // Keep last (most recent), remove others
+            for (let i = 0; i < stuckModals.length - 1; i++) {
+              if (stuckModals[i].isConnected) {
+                stuckModals[i].remove();
+              }
+            }
+          }
+        }
+        
+        // Run on load
+        window.addEventListener('load', function() {
+          console.log('📄 Page loaded, checking for duplicates...');
+          setTimeout(checkAndFixDuplicates, 100);
+          setTimeout(checkAndFixDuplicates, 500);
+          setTimeout(checkAndFixDuplicates, 1000);
+        });
+        
+        // Run on every navigation
+        let lastPathname = window.location.pathname;
+        const observer = new MutationObserver(function() {
+          if (window.location.pathname !== lastPathname) {
+            lastPathname = window.location.pathname;
+            console.log('🔀 Navigation detected to:', lastPathname);
+            setTimeout(checkAndFixDuplicates, 100);
+          }
+        });
+        
+        observer.observe(document.body, { childList: true, subtree: true });
+        
+        // Global function untuk manual fix
+        window.fixAllDuplicates = checkAndFixDuplicates;
+        console.log('✅ Global fix ready. Use window.fixAllDuplicates() to manually fix.');
+        
+      })();
+    </script>
   </body>
 </html>
