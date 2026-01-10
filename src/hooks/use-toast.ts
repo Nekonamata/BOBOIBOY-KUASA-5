@@ -1,3 +1,4 @@
+// src/hooks/use-toast.ts
 import * as React from "react";
 
 import type { ToastActionElement, ToastProps } from "@/components/ui/toast";
@@ -163,6 +164,54 @@ function toast({ ...props }: Toast) {
   };
 }
 
+// Fungsi toast helper untuk kemudahan penggunaan
+function successToast(title: string, description?: string) {
+  return toast({
+    title,
+    description,
+    variant: "default",
+  });
+}
+
+function errorToast(title: string, description?: string) {
+  return toast({
+    title,
+    description,
+    variant: "destructive",
+  });
+}
+
+function warningToast(title: string, description?: string) {
+  return toast({
+    title,
+    description,
+    variant: "default",
+    className: "bg-yellow-50 text-yellow-900 border-yellow-200",
+  });
+}
+
+function infoToast(title: string, description?: string) {
+  return toast({
+    title,
+    description,
+    variant: "default",
+    className: "bg-blue-50 text-blue-900 border-blue-200",
+  });
+}
+
+// Fungsi utama yang digunakan di komponen
+function showToast({ title, description, variant = "default" }: {
+  title: string;
+  description?: string;
+  variant?: "default" | "destructive";
+}) {
+  return toast({
+    title,
+    description,
+    variant,
+  });
+}
+
 function useToast() {
   const [state, setState] = React.useState<State>(memoryState);
 
@@ -179,8 +228,13 @@ function useToast() {
   return {
     ...state,
     toast,
+    showToast,
+    successToast,
+    errorToast,
+    warningToast,
+    infoToast,
     dismiss: (toastId?: string) => dispatch({ type: "DISMISS_TOAST", toastId }),
   };
 }
 
-export { useToast, toast };
+export { useToast, toast, showToast, successToast, errorToast, warningToast, infoToast };

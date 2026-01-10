@@ -149,9 +149,10 @@ export const useAuth = () => {
     ]
   };
 
-  // Cek status autentikasi
+  // Cek status autentikasi dan load data dari localStorage
   const checkAuth = useCallback(() => {
     try {
+      setLoading(true);
       const token = localStorage.getItem('auth_token');
       const userData = localStorage.getItem('user_data');
       
@@ -168,13 +169,24 @@ export const useAuth = () => {
             
             setUser(userWithAuth);
             
-            // Load riwayat peminjaman user
-            if (userObj.email && mockRiwayat[userObj.email]) {
-              setRiwayatPeminjaman(mockRiwayat[userObj.email]);
-            } else {
-              setRiwayatPeminjaman([]);
+            // Load riwayat peminjaman dari localStorage terlebih dahulu
+            const storedPeminjaman = localStorage.getItem('user_peminjaman');
+            let userPeminjaman: Peminjaman[] = [];
+            
+            if (storedPeminjaman) {
+              try {
+                userPeminjaman = JSON.parse(storedPeminjaman);
+              } catch (e) {
+                console.error('Error parsing peminjaman data:', e);
+              }
             }
             
+            // Jika tidak ada di localStorage, gunakan mock data
+            if (userPeminjaman.length === 0 && userObj.email && mockRiwayat[userObj.email]) {
+              userPeminjaman = mockRiwayat[userObj.email];
+            }
+            
+            setRiwayatPeminjaman(userPeminjaman);
             setError(null);
           } else {
             logout();
@@ -198,8 +210,10 @@ export const useAuth = () => {
   useEffect(() => {
     checkAuth();
     
-    const handleStorageChange = () => {
-      checkAuth();
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'auth_token' || e.key === 'user_data' || e.key === 'user_peminjaman') {
+        checkAuth();
+      }
     };
 
     window.addEventListener('storage', handleStorageChange);
@@ -229,7 +243,7 @@ export const useAuth = () => {
       // Dummy user database
       const dummyUsers = [
         {
-          id: '1',
+          id: 'USR-ADMIN-001',
           email: 'admin@unimus.ac.id',
           password: 'admin123',
           name: 'Administrator SIPRUS',
@@ -238,7 +252,7 @@ export const useAuth = () => {
           jurusan: 'Sistem Informasi'
         },
         {
-          id: '2',
+          id: 'USR-MHS-001',
           email: 'mahasiswa@unimus.ac.id',
           password: 'admin123',
           name: 'Budi Santoso',
@@ -248,7 +262,7 @@ export const useAuth = () => {
           nim: '20210001'
         },
         {
-          id: '3',
+          id: 'USR-DOS-001',
           email: 'dosen@unimus.ac.id',
           password: 'admin123',
           name: 'Dr. Ahmad Wijaya, M.Kom.',
@@ -285,15 +299,26 @@ export const useAuth = () => {
       localStorage.setItem('auth_token', token);
       localStorage.setItem('user_data', JSON.stringify(userWithAuth));
 
+      // Load riwayat peminjaman dari localStorage atau mock data
+      let userPeminjaman: Peminjaman[] = [];
+      const storedPeminjaman = localStorage.getItem('user_peminjaman');
+      
+      if (storedPeminjaman) {
+        try {
+          userPeminjaman = JSON.parse(storedPeminjaman);
+        } catch (e) {
+          console.error('Error parsing peminjaman data:', e);
+        }
+      }
+      
+      // Jika tidak ada di localStorage, gunakan mock data
+      if (userPeminjaman.length === 0 && mockRiwayat[email]) {
+        userPeminjaman = mockRiwayat[email];
+      }
+
       // Update state
       setUser(userWithAuth);
-
-      // Set riwayat peminjaman
-      if (mockRiwayat[email]) {
-        setRiwayatPeminjaman(mockRiwayat[email]);
-      } else {
-        setRiwayatPeminjaman([]);
-      }
+      setRiwayatPeminjaman(userPeminjaman);
 
       return { success: true };
     } catch (err) {
@@ -313,6 +338,7 @@ export const useAuth = () => {
     try {
       localStorage.removeItem('auth_token');
       localStorage.removeItem('user_data');
+      // Tidak menghapus user_peminjaman agar riwayat tetap tersimpan
       setUser(null);
       setRiwayatPeminjaman([]);
       setError(null);
@@ -321,6 +347,14 @@ export const useAuth = () => {
       window.dispatchEvent(new StorageEvent('storage', {
         key: 'auth_token',
         oldValue: localStorage.getItem('auth_token'),
+        newValue: null,
+        url: window.location.href,
+        storageArea: localStorage
+      }));
+      
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: 'user_data',
+        oldValue: localStorage.getItem('user_data'),
         newValue: null,
         url: window.location.href,
         storageArea: localStorage
@@ -335,51 +369,77 @@ export const useAuth = () => {
   const tambahPeminjaman = (data: Omit<Peminjaman, 'id' | 'status'>): Peminjaman => {
     const newPeminjaman: Peminjaman = {
       ...data,
-      id: Date.now().toString(),
+      id: `PINJ-${Date.now().toString().slice(-6)}`,
       status: 'diproses' // Default status
     };
     
     // Update state
     setRiwayatPeminjaman(prev => [newPeminjaman, ...prev]);
     
-    // Simpan ke mock data (hanya untuk session ini)
-    if (user?.email) {
-      const currentRiwayat = mockRiwayat[user.email] || [];
-      mockRiwayat[user.email] = [newPeminjaman, ...currentRiwayat];
-    }
+    // Simpan ke localStorage
+    const existingPeminjaman = JSON.parse(localStorage.getItem('user_peminjaman') || '[]');
+    const updatedPeminjaman = [newPeminjaman, ...existingPeminjaman];
+    localStorage.setItem('user_peminjaman', JSON.stringify(updatedPeminjaman));
+    
+    // Trigger storage event untuk update komponen lain
+    window.dispatchEvent(new StorageEvent('storage', {
+      key: 'user_peminjaman',
+      oldValue: localStorage.getItem('user_peminjaman'),
+      newValue: JSON.stringify(updatedPeminjaman),
+      url: window.location.href,
+      storageArea: localStorage
+    }));
     
     return newPeminjaman;
   };
 
   // Function untuk update status peminjaman
   const updateStatusPeminjaman = (id: string, status: Peminjaman['status']): void => {
+    // Update state
     setRiwayatPeminjaman(prev => 
       prev.map(item => 
         item.id === id ? { ...item, status } : item
       )
     );
     
-    // Update mock data juga
-    if (user?.email && mockRiwayat[user.email]) {
-      mockRiwayat[user.email] = mockRiwayat[user.email].map(item =>
-        item.id === id ? { ...item, status } : item
-      );
-    }
+    // Update localStorage
+    const existingPeminjaman = JSON.parse(localStorage.getItem('user_peminjaman') || '[]');
+    const updatedPeminjaman = existingPeminjaman.map((item: Peminjaman) =>
+      item.id === id ? { ...item, status } : item
+    );
+    localStorage.setItem('user_peminjaman', JSON.stringify(updatedPeminjaman));
+    
+    // Trigger storage event
+    window.dispatchEvent(new StorageEvent('storage', {
+      key: 'user_peminjaman',
+      oldValue: localStorage.getItem('user_peminjaman'),
+      newValue: JSON.stringify(updatedPeminjaman),
+      url: window.location.href,
+      storageArea: localStorage
+    }));
   };
 
   // Function untuk hapus peminjaman
   const hapusPeminjaman = (id: string): void => {
     setRiwayatPeminjaman(prev => prev.filter(item => item.id !== id));
     
-    if (user?.email && mockRiwayat[user.email]) {
-      mockRiwayat[user.email] = mockRiwayat[user.email].filter(item => item.id !== id);
-    }
+    const existingPeminjaman = JSON.parse(localStorage.getItem('user_peminjaman') || '[]');
+    const updatedPeminjaman = existingPeminjaman.filter((item: Peminjaman) => item.id !== id);
+    localStorage.setItem('user_peminjaman', JSON.stringify(updatedPeminjaman));
+    
+    window.dispatchEvent(new StorageEvent('storage', {
+      key: 'user_peminjaman',
+      oldValue: localStorage.getItem('user_peminjaman'),
+      newValue: JSON.stringify(updatedPeminjaman),
+      url: window.location.href,
+      storageArea: localStorage
+    }));
   };
 
   // Function untuk mendapatkan statistik
   const getStatistik = () => {
     const total = riwayatPeminjaman.length;
-    const disetujui = riwayatPeminjaman.filter(r => r.status === 'disetujui').length;
+    const disetujui = riwayatPeminjaman.filter(r => r.status === 'disetujui' || r.status === 'selesai').length;
     const diproses = riwayatPeminjaman.filter(r => r.status === 'diproses').length;
     const selesai = riwayatPeminjaman.filter(r => r.status === 'selesai').length;
     const ditolak = riwayatPeminjaman.filter(r => r.status === 'ditolak').length;
@@ -396,6 +456,27 @@ export const useAuth = () => {
   // Function untuk check jika user adalah admin
   const isAdmin = (): boolean => {
     return user?.role === 'admin';
+  };
+
+  // Function untuk refresh riwayat dari localStorage
+  const refreshRiwayat = () => {
+    checkAuth();
+  };
+
+  // Function untuk mendapatkan peminjaman aktif
+  const getPeminjamanAktif = () => {
+    const today = new Date().toISOString().split('T')[0];
+    return riwayatPeminjaman.filter(p => 
+      p.status === 'disetujui' && p.tanggal >= today
+    );
+  };
+
+  // Function untuk mendapatkan peminjaman mendatang
+  const getPeminjamanMendatang = () => {
+    const today = new Date().toISOString().split('T')[0];
+    return riwayatPeminjaman.filter(p => 
+      (p.status === 'diproses' || p.status === 'disetujui') && p.tanggal >= today
+    ).slice(0, 5); // Ambil 5 terdekat
   };
 
   return {
@@ -418,6 +499,9 @@ export const useAuth = () => {
     hapusPeminjaman,
     getStatistik,
     hasRole,
+    refreshRiwayat,
+    getPeminjamanAktif,
+    getPeminjamanMendatang,
     
     // Utility
     clearError: () => setError(null)

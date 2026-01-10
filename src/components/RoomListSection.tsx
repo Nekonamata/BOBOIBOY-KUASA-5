@@ -2,11 +2,14 @@ import { useState, useMemo } from 'react';
 import { rooms } from '@/data/rooms';
 import RoomCard from './RoomCard';
 import FilterBar from './FilterBar';
-import { Search, X } from 'lucide-react';
+import { Search, X, Calendar, Clock, User } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useAuth } from '@/hooks/useAuth';
+import { toast } from '@/hooks/use-toast';
 
 const RoomListSection = () => {
   const [selectedGedung, setSelectedGedung] = useState('');
@@ -14,18 +17,20 @@ const RoomListSection = () => {
   const [selectedLantai, setSelectedLantai] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   
+  const { isAuthenticated, user } = useAuth();
+  
   // State untuk form peminjaman
   const [showPeminjamanForm, setShowPeminjamanForm] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState<any>(null);
   
   // State untuk form data
   const [formData, setFormData] = useState({
-    peminjam_id_peminjam: '',
     tanggal_pinjam: '',
-    jam_mulai: '',
-    jam_selesai: '',
+    jam_mulai: '08:00',
+    jam_selesai: '10:00',
     keperluan: '',
-    status_peminjaman: 'pending', // default status
+    jumlah_peserta: 1,
+    catatan: '',
   });
 
   const filteredRooms = useMemo(() => {
@@ -56,10 +61,28 @@ const RoomListSection = () => {
 
   // Handler untuk membuka form peminjaman
   const handleAjukanPeminjaman = (room: any) => {
+    if (!isAuthenticated) {
+      toast({
+        title: "Login diperlukan",
+        description: "Silakan login terlebih dahulu untuk mengajukan peminjaman",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setSelectedRoom(room);
+    // Set tanggal default ke besok
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const formattedDate = tomorrow.toISOString().split('T')[0];
+    
     setFormData({
-      ...formData,
-      peminjam_id_peminjam: '', // Ini seharusnya diisi dengan ID peminjam dari auth/user context
+      tanggal_pinjam: formattedDate,
+      jam_mulai: '08:00',
+      jam_selesai: '10:00',
+      keperluan: '',
+      jumlah_peserta: 1,
+      catatan: '',
     });
     setShowPeminjamanForm(true);
   };
@@ -69,12 +92,12 @@ const RoomListSection = () => {
     setShowPeminjamanForm(false);
     setSelectedRoom(null);
     setFormData({
-      peminjam_id_peminjam: '',
       tanggal_pinjam: '',
-      jam_mulai: '',
-      jam_selesai: '',
+      jam_mulai: '08:00',
+      jam_selesai: '10:00',
       keperluan: '',
-      status_peminjaman: 'pending',
+      jumlah_peserta: 1,
+      catatan: '',
     });
   };
 
@@ -87,27 +110,143 @@ const RoomListSection = () => {
     }));
   };
 
+  // Handler untuk select change
+  const handleSelectChange = (name: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  // Fungsi untuk menyimpan ke localStorage
+  const saveToLocalStorage = (peminjamanData: any) => {
+    // Load existing data
+    const existingData = JSON.parse(localStorage.getItem('user_peminjaman') || '[]');
+    
+    // Add new data at the beginning
+    existingData.unshift(peminjamanData);
+    
+    // Save back to localStorage
+    localStorage.setItem('user_peminjaman', JSON.stringify(existingData));
+    
+    return existingData;
+  };
+
+  // Fungsi untuk membuat notifikasi
+  const createNotification = (title: string, message: string, type: string) => {
+    const notification = {
+      id: `notif_${Date.now()}`,
+      title,
+      message,
+      type,
+      read: false,
+      date: new Date(),
+    };
+
+    // Save to localStorage
+    const existingNotifications = JSON.parse(localStorage.getItem('user_notifications') || '[]');
+    existingNotifications.unshift(notification);
+    localStorage.setItem('user_notifications', JSON.stringify(existingNotifications));
+
+    // Trigger event for navbar update
+    window.dispatchEvent(new Event('storage'));
+    
+    return notification;
+  };
+
   // Handler untuk submit form
   const handleSubmitPeminjaman = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Data yang akan dikirim ke API
+    if (!isAuthenticated || !user) {
+      toast({
+        title: "Login diperlukan",
+        description: "Silakan login terlebih dahulu",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validasi waktu
+    if (formData.jam_mulai >= formData.jam_selesai) {
+      toast({
+        title: "Waktu tidak valid",
+        description: "Jam selesai harus setelah jam mulai",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validasi tanggal tidak boleh hari ini atau sebelumnya
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const selectedDate = new Date(formData.tanggal_pinjam);
+    
+    if (selectedDate < today) {
+      toast({
+        title: "Tanggal tidak valid",
+        description: "Tanggal peminjaman tidak boleh hari ini atau sebelumnya",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Format tanggal Indonesia
+    const formattedDate = new Date(formData.tanggal_pinjam).toLocaleDateString('id-ID', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    // Hitung durasi
+    const jamMulai = parseInt(formData.jam_mulai.split(':')[0]);
+    const jamSelesai = parseInt(formData.jam_selesai.split(':')[0]);
+    const durasi = jamSelesai - jamMulai;
+
+    // Generate unique ID
+    const peminjamanId = `PINJ-${Date.now().toString().slice(-6)}`;
+    
+    // Buat data peminjaman
     const peminjamanData = {
-      ...formData,
-      ruangan_id_ruangan: selectedRoom?.id,
-      gedung_id_gedung: selectedRoom?.gedung_id, // Anda perlu menambahkan properti ini di data ruangan
-      update_at: new Date().toISOString(),
+      id: peminjamanId,
+      ruangan: selectedRoom.name,
+      gedung: selectedRoom.gedung,
+      lantai: selectedRoom.lantai,
+      tanggal: formattedDate,
+      waktu: `${formData.jam_mulai} - ${formData.jam_selesai}`,
+      durasi: durasi,
+      keperluan: formData.keperluan,
+      status: 'menunggu',
+      tanggalPengajuan: new Date().toLocaleDateString('id-ID', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      }),
+      jumlahPeserta: formData.jumlah_peserta,
+      catatan: formData.catatan || undefined,
+      userId: user.id || 'user-001',
+      userName: user.name || 'Pengguna'
     };
 
-    console.log('Data peminjaman:', peminjamanData);
-    
-    // TODO: Implement API call here
-    // Contoh: 
-    // await api.post('/peminjaman', peminjamanData);
-    
+    // Simpan ke localStorage
+    saveToLocalStorage(peminjamanData);
+
+    // Buat notifikasi
+    createNotification(
+      'Peminjaman Diajukan',
+      `Peminjaman ${selectedRoom.name} untuk ${formData.keperluan} berhasil diajukan. Menunggu persetujuan.`,
+      'info'
+    );
+
+    // Show success toast
+    toast({
+      title: "Peminjaman Diajukan",
+      description: `Permohonan peminjaman ${selectedRoom.name} berhasil diajukan. ID: ${peminjamanId}`,
+    });
+
     // Reset dan tutup form
     handleCloseForm();
-    alert('Peminjaman berhasil diajukan!');
   };
 
   return (
@@ -117,12 +256,12 @@ const RoomListSection = () => {
           {/* Search Bar */}
           <div className="mb-6">
             <div className="relative max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
                 placeholder="Cari ruangan..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
+                className="pl-10 border-gray-300"
               />
             </div>
           </div>
@@ -140,8 +279,8 @@ const RoomListSection = () => {
 
           {/* Results Count */}
           <div className="mt-6 mb-4 flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">
-              Menampilkan <span className="font-semibold text-foreground">{filteredRooms.length}</span> ruangan
+            <p className="text-sm text-gray-600">
+              Menampilkan <span className="font-semibold text-gray-900">{filteredRooms.length}</span> ruangan
             </p>
           </div>
 
@@ -163,11 +302,11 @@ const RoomListSection = () => {
             </div>
           ) : (
             <div className="py-16 text-center">
-              <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-secondary mb-4">
-                <Search className="h-8 w-8 text-muted-foreground" />
+              <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 mb-4">
+                <Search className="h-8 w-8 text-gray-400" />
               </div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">Tidak ada ruangan ditemukan</h3>
-              <p className="text-muted-foreground">Coba ubah filter pencarian Anda</p>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Tidak ada ruangan ditemukan</h3>
+              <p className="text-gray-600">Coba ubah filter pencarian Anda</p>
             </div>
           )}
         </div>
@@ -175,125 +314,177 @@ const RoomListSection = () => {
 
       {/* Modal/Pop-up Form Peminjaman */}
       {showPeminjamanForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="relative w-full max-w-md mx-4 bg-white dark:bg-gray-800 rounded-lg shadow-lg">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="relative w-full max-w-md bg-white rounded-lg shadow-xl border border-gray-200">
             {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
               <div>
-                <h2 className="text-xl font-semibold">Ajukan Peminjaman</h2>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {selectedRoom?.name} - Gedung {selectedRoom?.gedung}
-                </p>
+                <h2 className="text-xl font-semibold text-gray-900">Ajukan Peminjaman</h2>
+                <div className="flex items-center gap-2 mt-1">
+                  <div className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded">
+                    {selectedRoom?.gedung}
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    {selectedRoom?.name} • Lantai {selectedRoom?.lantai}
+                  </p>
+                </div>
               </div>
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={handleCloseForm}
-                className="h-8 w-8"
+                className="h-8 w-8 hover:bg-gray-100"
               >
-                <X className="h-4 w-4" />
+                <X className="h-4 w-4 text-gray-600" />
               </Button>
+            </div>
+
+            {/* User Info */}
+            <div className="px-6 pt-4">
+              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                <div className="h-8 w-8 rounded-full bg-gradient-to-r from-orange-500 to-red-500 flex items-center justify-center">
+                  <User className="h-4 w-4 text-white" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">{user?.name || 'Pengguna'}</p>
+                  <p className="text-xs text-gray-600">ID: {user?.id || 'user-001'}</p>
+                </div>
+              </div>
             </div>
 
             {/* Form */}
             <form onSubmit={handleSubmitPeminjaman}>
               <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
-                {/* ID Peminjam (biasanya dari auth) */}
-                <div className="space-y-2">
-                  <Label htmlFor="peminjam_id_peminjam">ID Peminjam</Label>
-                  <Input
-                    id="peminjam_id_peminjam"
-                    name="peminjam_id_peminjam"
-                    value={formData.peminjam_id_peminjam}
-                    onChange={handleInputChange}
-                    placeholder="Masukkan ID peminjam"
-                    required
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    *ID ini biasanya diisi otomatis dari data login
-                  </p>
-                </div>
-
                 {/* Tanggal Pinjam */}
                 <div className="space-y-2">
-                  <Label htmlFor="tanggal_pinjam">Tanggal Pinjam</Label>
-                  <Input
-                    id="tanggal_pinjam"
-                    name="tanggal_pinjam"
-                    type="date"
-                    value={formData.tanggal_pinjam}
-                    onChange={handleInputChange}
-                    required
-                  />
+                  <Label htmlFor="tanggal_pinjam" className="text-gray-700">Tanggal Pinjam *</Label>
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                      id="tanggal_pinjam"
+                      name="tanggal_pinjam"
+                      type="date"
+                      value={formData.tanggal_pinjam}
+                      onChange={handleInputChange}
+                      className="pl-10 border-gray-300"
+                      min={new Date(new Date().getTime() + 86400000).toISOString().split('T')[0]}
+                      required
+                    />
+                  </div>
                 </div>
 
-                {/* Jam Mulai */}
-                <div className="space-y-2">
-                  <Label htmlFor="jam_mulai">Jam Mulai</Label>
-                  <Input
-                    id="jam_mulai"
-                    name="jam_mulai"
-                    type="time"
-                    value={formData.jam_mulai}
-                    onChange={handleInputChange}
-                    required
-                  />
+                {/* Jam */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="jam_mulai" className="text-gray-700">Jam Mulai *</Label>
+                    <div className="relative">
+                      <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Select 
+                        value={formData.jam_mulai} 
+                        onValueChange={(value) => handleSelectChange('jam_mulai', value)}
+                      >
+                        <SelectTrigger className="pl-10 border-gray-300">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from({ length: 13 }, (_, i) => {
+                            const hour = i + 7; // 07:00 to 19:00
+                            return (
+                              <SelectItem key={hour} value={`${hour.toString().padStart(2, '0')}:00`}>
+                                {hour.toString().padStart(2, '0')}:00
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="jam_selesai" className="text-gray-700">Jam Selesai *</Label>
+                    <div className="relative">
+                      <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Select 
+                        value={formData.jam_selesai} 
+                        onValueChange={(value) => handleSelectChange('jam_selesai', value)}
+                      >
+                        <SelectTrigger className="pl-10 border-gray-300">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from({ length: 13 }, (_, i) => {
+                            const hour = i + 8; // 08:00 to 20:00
+                            return (
+                              <SelectItem key={hour} value={`${hour.toString().padStart(2, '0')}:00`}>
+                                {hour.toString().padStart(2, '0')}:00
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Jam Selesai */}
+                {/* Jumlah Peserta */}
                 <div className="space-y-2">
-                  <Label htmlFor="jam_selesai">Jam Selesai</Label>
+                  <Label htmlFor="jumlah_peserta" className="text-gray-700">Jumlah Peserta *</Label>
                   <Input
-                    id="jam_selesai"
-                    name="jam_selesai"
-                    type="time"
-                    value={formData.jam_selesai}
+                    id="jumlah_peserta"
+                    name="jumlah_peserta"
+                    type="number"
+                    min="1"
+                    max="200"
+                    value={formData.jumlah_peserta}
                     onChange={handleInputChange}
+                    className="border-gray-300"
                     required
                   />
                 </div>
 
                 {/* Keperluan */}
                 <div className="space-y-2">
-                  <Label htmlFor="keperluan">Keperluan</Label>
+                  <Label htmlFor="keperluan" className="text-gray-700">Keperluan *</Label>
                   <Textarea
                     id="keperluan"
                     name="keperluan"
                     value={formData.keperluan}
                     onChange={handleInputChange}
-                    placeholder="Deskripsikan keperluan peminjaman ruangan"
+                    placeholder="Contoh: Seminar Proposal, Rapat Koordinasi, Workshop, dll."
                     rows={3}
+                    className="border-gray-300"
                     required
                   />
                 </div>
 
-                {/* Status Peminjaman (biasanya hidden atau readonly) */}
+                {/* Catatan Tambahan */}
                 <div className="space-y-2">
-                  <Label htmlFor="status_peminjaman">Status Peminjaman</Label>
-                  <Input
-                    id="status_peminjaman"
-                    name="status_peminjaman"
-                    value={formData.status_peminjaman}
+                  <Label htmlFor="catatan" className="text-gray-700">Catatan Tambahan (Opsional)</Label>
+                  <Textarea
+                    id="catatan"
+                    name="catatan"
+                    value={formData.catatan}
                     onChange={handleInputChange}
-                    disabled
-                    className="bg-gray-100 dark:bg-gray-700"
+                    placeholder="Catatan khusus atau permintaan tambahan..."
+                    rows={2}
+                    className="border-gray-300"
                   />
-                  <p className="text-xs text-muted-foreground">
-                    *Status akan otomatis "pending" saat pengajuan
-                  </p>
                 </div>
               </div>
 
               {/* Footer/Buttons */}
-              <div className="flex justify-end gap-3 p-6 border-t">
+              <div className="flex justify-end gap-3 p-6 border-t border-gray-200">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={handleCloseForm}
+                  className="border-gray-300 text-gray-700 hover:bg-gray-100"
                 >
                   Batal
                 </Button>
-                <Button type="submit">
+                <Button 
+                  type="submit"
+                  className="bg-gradient-to-r from-orange-500 to-red-500 hover:opacity-90 text-white"
+                >
                   Ajukan Peminjaman
                 </Button>
               </div>
