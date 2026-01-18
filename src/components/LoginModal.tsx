@@ -176,7 +176,17 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps) => {
       <div className="absolute inset-0 bg-black/60 backdrop-blur-md animate-in fade-in-0 duration-300" />
       
       {/* Modal */}
-      <div className="relative z-10 w-full max-w-4xl mx-auto animate-in fade-in-0 zoom-in-95 duration-300">
+      <div className="relative z-10 w-full max-w-4xl mx-auto max-h-[90vh] overflow-y-auto animate-in fade-in-0 zoom-in-95 duration-300">
+        {/* Close Button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onClose}
+          className="absolute top-4 right-4 z-20 h-8 w-8 text-gray-500 hover:text-gray-700 hover:bg-gray-100 bg-white/80 backdrop-blur-sm"
+          disabled={isLoading || authLoading}
+        >
+          <X className="h-4 w-4" />
+        </Button>
         <div className="flex flex-col md:flex-row bg-white rounded-xl shadow-2xl overflow-hidden border border-gray-200">
           {/* Left Panel - Welcome */}
           <div className="md:w-2/5 bg-gradient-to-br from-orange-500 to-red-600 p-8 text-white flex flex-col">
@@ -249,22 +259,11 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps) => {
           
           {/* Right Panel - Login Form */}
           <div className="md:w-3/5 p-8">
-            <div className="flex justify-between items-start mb-8">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">Masuk ke Akun Anda</h2>
-                <p className="text-gray-600 mt-1">
-                  Gunakan kredensial Unimus untuk mengakses sistem
-                </p>
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onClose}
-                className="h-8 w-8 text-gray-500 hover:text-gray-700 hover:bg-gray-100"
-                disabled={isLoading || authLoading}
-              >
-                <X className="h-4 w-4" />
-              </Button>
+            <div className="mb-8">
+              <h2 className="text-2xl font-bold text-gray-900">Masuk ke Akun Anda</h2>
+              <p className="text-gray-600 mt-1">
+                Gunakan kredensial Unimus untuk mengakses sistem
+              </p>
             </div>
             
             {/* Quick Login Buttons */}

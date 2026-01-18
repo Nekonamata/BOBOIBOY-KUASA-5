@@ -11,8 +11,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
+import { getRiwayatPeminjaman, PeminjamanData as ApiPeminjamanData } from '@/services/peminjaman.service';
+import api from '@/lib/api';
+import jsPDF from 'jspdf';
+import { safeDateFormatWithWeekday, safeDateTimeFormat } from '@/lib/date-utils';
 
-// Interface untuk data peminjaman
+// Interface untuk data peminjaman (frontend format)
 interface PeminjamanData {
   id: string;
   ruangan: string;
@@ -21,7 +26,7 @@ interface PeminjamanData {
   waktu: string;
   durasi: number;
   keperluan: string;
-  status: 'disetujui' | 'ditolak' | 'menunggu';
+  status: 'disetujui' | 'ditolak' | 'menunggu' | 'diproses' | 'selesai';
   tanggalPengajuan: string;
   tanggalDisetujui?: string;
   nomorSurat?: string;
@@ -30,6 +35,7 @@ interface PeminjamanData {
 }
 
 const Profil = () => {
+  const { user, tambahPeminjaman } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') || 'profil';
   const [selectedPeminjaman, setSelectedPeminjaman] = useState<PeminjamanData | null>(null);
@@ -37,7 +43,8 @@ const Profil = () => {
   const [showPeminjamanModal, setShowPeminjamanModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('semua');
-  
+  const [loading, setLoading] = useState(false);
+
   // Form state
   const [formData, setFormData] = useState({
     ruangan: '',
@@ -50,38 +57,10 @@ const Profil = () => {
     catatan: ''
   });
 
-  // Simpan data peminjaman ke localStorage
-  const saveToLocalStorage = (data: PeminjamanData) => {
-    const existingData = JSON.parse(localStorage.getItem('user_peminjaman') || '[]');
-    const updatedData = [data, ...existingData];
-    localStorage.setItem('user_peminjaman', JSON.stringify(updatedData));
-    return updatedData;
-  };
 
-  // Fungsi untuk membuat notifikasi
-  const createNotification = (title: string, message: string, type: string) => {
-    const notification = {
-      id: `notif_${Date.now()}`,
-      title,
-      message,
-      type,
-      read: false,
-      date: new Date(),
-    };
-
-    // Simpan ke localStorage
-    const existingNotifications = JSON.parse(localStorage.getItem('user_notifications') || '[]');
-    existingNotifications.unshift(notification);
-    localStorage.setItem('user_notifications', JSON.stringify(existingNotifications));
-
-    // Trigger event untuk update navbar
-    window.dispatchEvent(new Event('storage'));
-    
-    return notification;
-  };
 
   // Fungsi untuk mengajukan peminjaman baru
-  const handleAjukanPeminjaman = () => {
+  const handleAjukanPeminjaman = async () => {
     // Validasi
     if (!formData.ruangan || !formData.gedung || !formData.tanggal || !formData.keperluan) {
       toast({
@@ -106,220 +85,80 @@ const Profil = () => {
       return;
     }
 
-    // Format tanggal Indonesia
-    const formattedDate = new Date(formData.tanggal).toLocaleDateString('id-ID', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-
-    // Format tanggal pengajuan
-    const today = new Date().toLocaleDateString('id-ID', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-
-    // Generate ID unik
-    const peminjamanId = `PINJ-${Date.now().toString().slice(-6)}`;
-    
-    // Buat objek peminjaman
-    const newPeminjaman: PeminjamanData = {
-      id: peminjamanId,
-      ruangan: formData.ruangan,
-      gedung: formData.gedung,
-      tanggal: formattedDate,
-      waktu: `${formData.waktuMulai} - ${formData.waktuSelesai}`,
-      durasi: durasi,
-      keperluan: formData.keperluan,
-      status: 'menunggu',
-      tanggalPengajuan: today,
-      jumlahPeserta: formData.jumlahPeserta,
-      catatan: formData.catatan || undefined
-    };
-
-    // Simpan ke localStorage
-    saveToLocalStorage(newPeminjaman);
-
-    // Buat notifikasi
-    createNotification(
-      'Peminjaman Diajukan',
-      `Peminjaman ${formData.ruangan} untuk ${formData.keperluan} berhasil diajukan. Menunggu persetujuan.`,
-      'info'
-    );
-
-    // Show success toast
-    toast({
-      title: "Peminjaman Diajukan",
-      description: `Permohonan peminjaman ${formData.ruangan} berhasil diajukan. ID: ${peminjamanId}`,
-    });
-
-    // Reset form
-    setFormData({
-      ruangan: '',
-      gedung: '',
-      tanggal: '',
-      waktuMulai: '08:00',
-      waktuSelesai: '10:00',
-      keperluan: '',
-      jumlahPeserta: 1,
-      catatan: ''
-    });
-
-    // Close modal
-    setShowPeminjamanModal(false);
-
-    // Refresh data
-    loadPeminjamanData();
-  };
-
-  // Load data dari localStorage
-  const [riwayatPeminjaman, setRiwayatPeminjaman] = useState<PeminjamanData[]>([]);
-
-  const loadPeminjamanData = () => {
     try {
-      const storedData = localStorage.getItem('user_peminjaman');
-      if (storedData) {
-        const parsedData = JSON.parse(storedData);
-        // Urutkan berdasarkan tanggal pengajuan (terbaru dulu)
-        const sortedData = parsedData.sort((a: PeminjamanData, b: PeminjamanData) => {
-          // Handle date comparison safely
-          try {
-            const dateA = new Date(a.tanggalPengajuan).getTime();
-            const dateB = new Date(b.tanggalPengajuan).getTime();
-            return dateB - dateA;
-          } catch (error) {
-            return 0;
-          }
+      setLoading(true);
+
+      // Find room ID from available rooms
+      const selectedRoom = availableRooms.find(room => room.name === formData.ruangan);
+      console.log('Available rooms:', availableRooms);
+      console.log('Selected room name:', formData.ruangan);
+      console.log('Found selected room:', selectedRoom);
+
+      if (!selectedRoom) {
+        toast({
+          title: "Ruangan tidak ditemukan",
+          description: "Ruangan yang dipilih tidak valid",
+          variant: "destructive",
         });
-        setRiwayatPeminjaman(sortedData);
-      } else {
-        // Jika tidak ada data di localStorage, gunakan data dummy
-        setRiwayatPeminjaman([
-          {
-            id: 'PINJ-001',
-            ruangan: 'Ruang Seminar',
-            gedung: 'Gedung A Lantai 3',
-            tanggal: '15 Januari 2024',
-            waktu: '09:00 - 12:00',
-            durasi: 3,
-            keperluan: 'Seminar Proposal Skripsi',
-            status: 'disetujui',
-            tanggalPengajuan: '10 Januari 2024',
-            tanggalDisetujui: '12 Januari 2024',
-            nomorSurat: 'UNMS/001/SPR/I/2024',
-            jumlahPeserta: 50
-          },
-          {
-            id: 'PINJ-002',
-            ruangan: 'Lab Komputer',
-            gedung: 'Gedung B Lantai 2',
-            tanggal: '18 Januari 2024',
-            waktu: '13:00 - 15:00',
-            durasi: 2,
-            keperluan: 'Pelatihan Programming',
-            status: 'menunggu',
-            tanggalPengajuan: '12 Januari 2024',
-            jumlahPeserta: 30
-          },
-          {
-            id: 'PINJ-003',
-            ruangan: 'Auditorium',
-            gedung: 'Gedung Utama',
-            tanggal: '20 Januari 2024',
-            waktu: '14:00 - 17:00',
-            durasi: 3,
-            keperluan: 'Workshop Kewirausahaan',
-            status: 'ditolak',
-            tanggalPengajuan: '13 Januari 2024',
-            jumlahPeserta: 100
-          }
-        ]);
-        // Save dummy data to localStorage for consistency
-        localStorage.setItem('user_peminjaman', JSON.stringify([
-          {
-            id: 'PINJ-001',
-            ruangan: 'Ruang Seminar',
-            gedung: 'Gedung A Lantai 3',
-            tanggal: '15 Januari 2024',
-            waktu: '09:00 - 12:00',
-            durasi: 3,
-            keperluan: 'Seminar Proposal Skripsi',
-            status: 'disetujui',
-            tanggalPengajuan: '10 Januari 2024',
-            tanggalDisetujui: '12 Januari 2024',
-            nomorSurat: 'UNMS/001/SPR/I/2024',
-            jumlahPeserta: 50
-          },
-          {
-            id: 'PINJ-002',
-            ruangan: 'Lab Komputer',
-            gedung: 'Gedung B Lantai 2',
-            tanggal: '18 Januari 2024',
-            waktu: '13:00 - 15:00',
-            durasi: 2,
-            keperluan: 'Pelatihan Programming',
-            status: 'menunggu',
-            tanggalPengajuan: '12 Januari 2024',
-            jumlahPeserta: 30
-          }
-        ]));
+        return;
       }
+
+      console.log('Selected room ID:', selectedRoom.id);
+      console.log('Selected room ID type:', typeof selectedRoom.id);
+
+      if (!selectedRoom.id) {
+        console.error('ERROR: selectedRoom.id is null/undefined!');
+        console.error('selectedRoom object:', selectedRoom);
+        throw new Error('ID ruangan tidak ditemukan. Silakan refresh halaman dan coba lagi.');
+      }
+
+      // Submit via API
+      await tambahPeminjaman({
+        ruanganId: selectedRoom.id.toString(),
+        namaRuangan: formData.ruangan,
+        gedung: formData.gedung,
+        tanggal: formData.tanggal,
+        waktuMulai: formData.waktuMulai,
+        waktuSelesai: formData.waktuSelesai,
+        keperluan: formData.keperluan,
+      });
+
+      // Show success toast
+      toast({
+        title: "Peminjaman Diajukan",
+        description: `Permohonan peminjaman ${formData.ruangan} berhasil diajukan. Menunggu persetujuan.`,
+      });
+
+      // Reset form
+      setFormData({
+        ruangan: '',
+        gedung: '',
+        tanggal: '',
+        waktuMulai: '08:00',
+        waktuSelesai: '10:00',
+        keperluan: '',
+        jumlahPeserta: 1,
+        catatan: ''
+      });
+
+      // Close modal
+      setShowPeminjamanModal(false);
     } catch (error) {
-      console.error('Error loading peminjaman data:', error);
-      setRiwayatPeminjaman([]);
+      console.error('Error submitting peminjaman:', error);
+      toast({
+        title: "Gagal Mengajukan Peminjaman",
+        description: "Terjadi kesalahan saat mengajukan peminjaman. Silakan coba lagi.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Simulasi status update (untuk demo saja)
-  useEffect(() => {
-    const simulateStatusUpdate = () => {
-      const interval = setInterval(() => {
-        setRiwayatPeminjaman(prev => {
-          const updated = prev.map(item => {
-            if (item.status === 'menunggu' && Math.random() > 0.7) {
-              const isApproved = Math.random() > 0.3;
-              const newStatus: 'disetujui' | 'ditolak' = isApproved ? 'disetujui' : 'ditolak';
-              
-              // Create notification based on status
-              createNotification(
-                isApproved ? 'Peminjaman Disetujui' : 'Peminjaman Ditolak',
-                isApproved 
-                  ? `Peminjaman ${item.ruangan} untuk ${item.keperluan} telah disetujui.`
-                  : `Peminjaman ${item.ruangan} untuk ${item.keperluan} ditolak.`,
-                isApproved ? 'success' : 'error'
-              );
+  // Use riwayatPeminjaman from useAuth hook
+  const riwayatPeminjaman = useAuth().riwayatPeminjaman;
 
-              if (isApproved) {
-                return {
-                  ...item,
-                  status: newStatus,
-                  tanggalDisetujui: new Date().toLocaleDateString('id-ID'),
-                  nomorSurat: `UNMS/${Math.floor(Math.random() * 1000)}/SPR/I/2024`
-                };
-              }
 
-              return { ...item, status: newStatus };
-            }
-            return item;
-          });
-
-          // Update localStorage jika ada perubahan
-          if (JSON.stringify(updated) !== JSON.stringify(prev)) {
-            localStorage.setItem('user_peminjaman', JSON.stringify(updated));
-          }
-
-          return updated;
-        });
-      }, 30000); // Check every 30 seconds
-
-      return () => clearInterval(interval);
-    };
-
-    const cleanup = simulateStatusUpdate();
-    return cleanup;
-  }, []);
 
   const tabs = [
     { id: 'profil', label: 'Profil Saya', icon: <User className="h-4 w-4" /> },
@@ -330,9 +169,6 @@ const Profil = () => {
 
   const handleTabChange = (tabId: string) => {
     setSearchParams({ tab: tabId });
-    if (tabId === 'riwayat') {
-      loadPeminjamanData(); // Refresh data when switching to riwayat tab
-    }
   };
 
   const handleDetailClick = (peminjaman: PeminjamanData) => {
@@ -387,54 +223,112 @@ const Profil = () => {
   });
 
   const cetakSuratPDF = (peminjaman: PeminjamanData) => {
-    // Simulasi download PDF
-    toast({
-      title: "Fitur Cetak PDF",
-      description: `File PDF untuk peminjaman ${peminjaman.id} sedang dibuat...`,
-    });
-    
-    // Simulasi download
-    setTimeout(() => {
-      const content = `
-        SURAT PENGGUNAAN RUANGAN
-        =========================
-        
-        No. Surat: ${peminjaman.nomorSurat || '-'}
-        ID Peminjaman: ${peminjaman.id}
-        
-        DETAIL PEMINJAMAN:
-        - Ruangan: ${peminjaman.ruangan}
-        - Gedung: ${peminjaman.gedung}
-        - Tanggal: ${peminjaman.tanggal}
-        - Waktu: ${peminjaman.waktu}
-        - Durasi: ${peminjaman.durasi} jam
-        - Keperluan: ${peminjaman.keperluan}
-        - Jumlah Peserta: ${peminjaman.jumlahPeserta} orang
-        
-        STATUS: ${peminjaman.status.toUpperCase()}
-        Tanggal Pengajuan: ${peminjaman.tanggalPengajuan}
-        ${peminjaman.tanggalDisetujui ? `Tanggal Disetujui: ${peminjaman.tanggalDisetujui}` : ''}
-        
-        Catatan: ${peminjaman.catatan || '-'}
-        
-        Dicetak pada: ${new Date().toLocaleString('id-ID')}
-      `;
-      
-      const blob = new Blob([content], { type: 'text/plain' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `surat-peminjaman-${peminjaman.id}.txt`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-      
+    try {
       toast({
-        title: "File Berhasil Diunduh",
+        title: "Membuat PDF",
+        description: `File PDF untuk peminjaman ${peminjaman.id} sedang dibuat...`,
+      });
+
+      const doc = new jsPDF();
+
+      // Set font
+      doc.setFont('helvetica', 'normal');
+
+      // Header
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text('SURAT PENGGUNAAN RUANGAN', 105, 20, { align: 'center' });
+
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Universitas Muhammadiyah Semarang', 105, 30, { align: 'center' });
+
+      // Garis horizontal
+      doc.line(20, 35, 190, 35);
+
+      let yPosition = 50;
+
+      // Nomor Surat
+      if (peminjaman.nomorSurat) {
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`No. Surat: ${peminjaman.nomorSurat}`, 20, yPosition);
+        yPosition += 10;
+      }
+
+      // ID Peminjaman
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`ID Peminjaman: ${peminjaman.id}`, 20, yPosition);
+      yPosition += 15;
+
+      // Detail Peminjaman Header
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text('DETAIL PEMINJAMAN:', 20, yPosition);
+      yPosition += 10;
+
+      // Detail items
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+
+      const details = [
+        { label: 'Peminjam', value: user?.name || 'Tidak diketahui' },
+        { label: 'Ruangan', value: peminjaman.ruangan },
+        { label: 'Gedung', value: peminjaman.gedung },
+        { label: 'Tanggal', value: peminjaman.tanggal },
+        { label: 'Waktu', value: peminjaman.waktu },
+        { label: 'Durasi', value: `${peminjaman.durasi} jam` },
+        { label: 'Jumlah Peserta', value: `${peminjaman.jumlahPeserta} orang` },
+        { label: 'Keperluan', value: peminjaman.keperluan },
+        { label: 'Status', value: peminjaman.status.toUpperCase() },
+        { label: 'Tanggal Pengajuan', value: peminjaman.tanggalPengajuan },
+      ];
+
+      if (peminjaman.tanggalDisetujui) {
+        details.push({ label: 'Tanggal Disetujui', value: peminjaman.tanggalDisetujui });
+      }
+
+      details.forEach(detail => {
+        doc.text(`${detail.label}: ${detail.value}`, 25, yPosition);
+        yPosition += 8;
+      });
+
+      // Catatan
+      if (peminjaman.catatan) {
+        yPosition += 5;
+        doc.setFont('helvetica', 'bold');
+        doc.text('Catatan:', 20, yPosition);
+        yPosition += 8;
+        doc.setFont('helvetica', 'normal');
+
+        // Handle long text wrapping
+        const splitCatatan = doc.splitTextToSize(peminjaman.catatan, 150);
+        doc.text(splitCatatan, 25, yPosition);
+        yPosition += splitCatatan.length * 5;
+      }
+
+      // Footer
+      yPosition += 10;
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'italic');
+      doc.text(`Dicetak pada: ${safeDateTimeFormat(new Date().toISOString())}`, 20, yPosition);
+
+      // Save the PDF
+      doc.save(`surat-peminjaman-${peminjaman.id}.pdf`);
+
+      toast({
+        title: "PDF Berhasil Dibuat",
         description: `Surat peminjaman ${peminjaman.id} telah diunduh`,
       });
-    }, 1000);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast({
+        title: "Error",
+        description: "Gagal membuat file PDF. Silakan coba lagi.",
+        variant: "destructive",
+      });
+    }
   };
 
   useEffect(() => {
@@ -454,22 +348,31 @@ const Profil = () => {
     };
   }, [showDetailModal]);
 
-  // Load data saat komponen mount
-  useEffect(() => {
-    loadPeminjamanData();
-  }, []);
 
-  // Daftar ruangan tersedia
-  const availableRooms = [
-    { id: 1, name: 'Ruang Seminar', building: 'Gedung A Lantai 3' },
-    { id: 2, name: 'Lab Komputer', building: 'Gedung B Lantai 2' },
-    { id: 3, name: 'Auditorium', building: 'Gedung Utama' },
-    { id: 4, name: 'Ruang Rapat', building: 'Gedung C Lantai 1' },
-    { id: 5, name: 'Studio Multimedia', building: 'Gedung D Lantai 4' },
-    { id: 6, name: 'Aula Utama', building: 'Gedung Utama Lantai 1' },
-    { id: 7, name: 'Perpustakaan', building: 'Gedung E Lantai 2' },
-    { id: 8, name: 'Ruang Baca', building: 'Gedung F Lantai 3' },
-  ];
+
+  // Daftar ruangan tersedia (akan diambil dari API)
+  const [availableRooms, setAvailableRooms] = useState<Array<{id: number, name: string, building: string}>>([]);
+
+  // Load available rooms
+  useEffect(() => {
+    const loadRooms = async () => {
+      try {
+        const response = await api.get('/ruangan');
+        const rooms = response.data.map((room: any) => ({
+          id: room.id_ruangan,
+          name: room.nama_ruangan,
+          building: `${room.gedung.nama_gedung} Lantai ${room.lantai}`
+        }));
+        setAvailableRooms(rooms);
+      } catch (error) {
+        console.error('Error loading rooms:', error);
+        // Fallback to empty array
+        setAvailableRooms([]);
+      }
+    };
+
+    loadRooms();
+  }, []);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -623,7 +526,7 @@ const Profil = () => {
                       <Button
                         variant="outline"
                         size="icon"
-                        onClick={loadPeminjamanData}
+                        onClick={() => window.location.reload()}
                         title="Refresh data"
                         className="border-gray-300 hover:bg-gray-100"
                       >
@@ -669,6 +572,10 @@ const Profil = () => {
                                   {getStatusBadge(peminjaman.status)}
                                 </div>
                                 <div className="flex flex-wrap gap-4 mt-2 text-sm text-gray-600">
+                                  <div className="flex items-center gap-1">
+                                    <User className="h-3 w-3" />
+                                    <span>Peminjam: {user?.name || 'Tidak diketahui'}</span>
+                                  </div>
                                   <div className="flex items-center gap-1">
                                     <Calendar className="h-3 w-3" />
                                     <span>{peminjaman.tanggal}</span>

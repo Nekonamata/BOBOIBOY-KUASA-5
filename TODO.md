@@ -1,4 +1,21 @@
-# TODO: Make Date Selectable and Show Available Rooms Popup with Booking Form
+# TODO: Tambahkan Menu dan Isi untuk Tombol 'Cara Penggunaan' di Beranda
 
-- [x] Modify the date cell in the availability table to be clickable and trigger the modal showing available rooms for that date.
-- [x] Add the booking form directly inside the modal for selected rooms.
+## Tugas Utama
+- Tambahkan dialog "Cara Penggunaan" pada tombol di HeroSection.tsx
+- Dialog berisi langkah-langkah penggunaan sistem SIPRUS
+
+## Langkah Implementasi
+- [x] Import komponen Dialog dari UI library
+- [ ] Bungkus tombol "Cara Penggunaan" dengan DialogTrigger
+- [ ] Tambahkan DialogContent dengan langkah-langkah penggunaan:
+  - [ ] Langkah 1: Login ke sistem
+  - [ ] Langkah 2: Jelajahi ruangan tersedia
+  - [ ] Langkah 3: Pilih ruangan dan periksa ketersediaan
+  - [ ] Langkah 4: Ajukan permintaan peminjaman
+  - [ ] Langkah 5: Tunggu persetujuan
+- [ ] Pastikan dialog responsif dan mudah dibaca
+
+## Testing
+- [x] Test dialog terbuka saat tombol diklik
+- [x] Test dialog tertutup dengan benar
+- [x] Verifikasi konten langkah-langkah akurat

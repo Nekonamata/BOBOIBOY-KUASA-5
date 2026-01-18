@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { ArrowRight, Building2, Users, Calendar, CheckCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -44,9 +45,85 @@ const HeroSection = () => {
                   <ArrowRight className="h-5 w-5" />
                 </Button>
               </Link>
-              <Button size="xl" variant="outline" className="w-full sm:w-auto">
-                Cara Penggunaan
-              </Button>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button size="xl" variant="outline" className="w-full sm:w-auto">
+                    Cara Penggunaan
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>Cara Penggunaan Sistem SIPRUS</DialogTitle>
+                    <DialogDescription>
+                      Panduan langkah demi langkah untuk menggunakan Sistem Peminjaman Ruang Unimus (SIPRUS)
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-6">
+                    <div className="space-y-4">
+                      <div className="flex items-start gap-4">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground font-semibold text-sm">
+                          1
+                        </div>
+                        <div>
+                          <h4 className="font-semibold">Login ke Sistem</h4>
+                          <p className="text-sm text-muted-foreground">
+                            Masuk ke akun Anda menggunakan NIM/NIP dan password yang telah diberikan oleh administrator.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-4">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground font-semibold text-sm">
+                          2
+                        </div>
+                        <div>
+                          <h4 className="font-semibold">Jelajahi Ruangan Tersedia</h4>
+                          <p className="text-sm text-muted-foreground">
+                            Klik menu "Ruangan" untuk melihat daftar ruangan yang tersedia. Gunakan filter untuk mencari berdasarkan gedung, zona, atau lantai.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-4">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground font-semibold text-sm">
+                          3
+                        </div>
+                        <div>
+                          <h4 className="font-semibold">Pilih Ruangan dan Periksa Ketersediaan</h4>
+                          <p className="text-sm text-muted-foreground">
+                            Klik pada ruangan yang diinginkan untuk melihat detail dan jadwal ketersediaan. Pastikan ruangan tersedia pada waktu yang Anda butuhkan.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-4">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground font-semibold text-sm">
+                          4
+                        </div>
+                        <div>
+                          <h4 className="font-semibold">Ajukan Permintaan Peminjaman</h4>
+                          <p className="text-sm text-muted-foreground">
+                            Isi formulir peminjaman dengan lengkap, termasuk tanggal, waktu, keperluan, dan jumlah peserta. Klik "Ajukan Peminjaman" untuk mengirim permintaan.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-4">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground font-semibold text-sm">
+                          5
+                        </div>
+                        <div>
+                          <h4 className="font-semibold">Tunggu Persetujuan</h4>
+                          <p className="text-sm text-muted-foreground">
+                            Permintaan Anda akan diproses oleh administrator. Anda akan menerima notifikasi melalui email atau sistem ketika permintaan disetujui atau ditolak.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="rounded-lg bg-muted p-4">
+                      <p className="text-sm text-muted-foreground">
+                        <strong>Catatan:</strong> Pastikan untuk mengajukan peminjaman minimal 3 hari kerja sebelum tanggal penggunaan. Untuk bantuan lebih lanjut, hubungi administrator sistem.
+                      </p>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
 
             {/* Stats */}

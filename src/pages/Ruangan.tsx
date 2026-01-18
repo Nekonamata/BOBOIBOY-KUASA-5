@@ -1,4 +1,3 @@
-import Navbar from '@/components/Navbar';
 import RoomListSection from '@/components/RoomListSection';
 import Footer from '@/components/Footer';
 import { Building2 } from 'lucide-react';
@@ -6,7 +5,6 @@ import { Building2 } from 'lucide-react';
 const Ruangan = () => {
   return (
     <div className="min-h-screen flex flex-col">
-      <Navbar />
       <main className="flex-1">
         {/* Header */}
         <section className="bg-gradient-hero py-12 md:py-16">

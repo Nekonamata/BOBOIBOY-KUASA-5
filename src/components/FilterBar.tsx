@@ -1,7 +1,16 @@
-import { gedungList, lantaiOptions } from '@/data/rooms';
+import { useEffect, useState } from 'react';
+import api from '@/lib/api';
+
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Building2, MapPinned, Layers, RotateCcw } from 'lucide-react';
+
+/* ================= TYPES ================= */
+interface Gedung {
+  id_gedung: number;
+  nama_gedung: string;
+  zona: string;
+}
 
 interface FilterBarProps {
   selectedGedung: string;
@@ -13,6 +22,7 @@ interface FilterBarProps {
   onReset: () => void;
 }
 
+/* ================= COMPONENT ================= */
 const FilterBar = ({
   selectedGedung,
   selectedZona,
@@ -22,17 +32,39 @@ const FilterBar = ({
   onLantaiChange,
   onReset,
 }: FilterBarProps) => {
-  const selectedGedungData = gedungList.find((g) => g.name === selectedGedung);
-  const zonas = selectedGedungData?.zonas || [];
+  const [gedungList, setGedungList] = useState<Gedung[]>([]);
+  const lantaiOptions = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
-  const hasActiveFilters = selectedGedung || selectedZona || selectedLantai;
+  /* ===== Fetch Gedung ===== */
+  useEffect(() => {
+    api.get('/gedung')
+      .then((res) => setGedungList(res.data.data))
+      .catch((err) => console.error('Gagal load gedung:', err));
+  }, []);
+
+  /* ===== Zona berdasarkan Gedung terpilih ===== */
+  const zonaOptions = selectedGedung === 'all'
+    ? Array.from(new Set(gedungList.map((g) => g.zona)))
+    : Array.from(
+        new Set(
+          gedungList
+            .filter((g) => g.nama_gedung === selectedGedung)
+            .map((g) => g.zona)
+        )
+      );
+
+  const hasActiveFilters =
+    (selectedGedung !== '' && selectedGedung !== 'all') ||
+    (selectedZona !== '' && selectedZona !== 'all') ||
+    (selectedLantai !== '' && selectedLantai !== 'all');
 
   return (
     <div className="bg-card rounded-2xl border border-border/50 p-4 md:p-6 shadow-sm">
       <div className="flex flex-col md:flex-row md:items-center gap-4">
-        {/* Gedung Filter */}
+
+        {/* ================= GEDUNG ================= */}
         <div className="flex-1">
-          <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-2">
+          <label className="flex items-center gap-2 text-sm font-medium mb-2">
             <Building2 className="h-4 w-4 text-primary" />
             Gedung
           </label>
@@ -41,18 +73,19 @@ const FilterBar = ({
               <SelectValue placeholder="Pilih Gedung" />
             </SelectTrigger>
             <SelectContent>
-              {gedungList.map((gedung) => (
-                <SelectItem key={gedung.id} value={gedung.name}>
-                  {gedung.name}
+              <SelectItem value="all">Semua Gedung</SelectItem>
+              {Array.from(new Set(gedungList.map(g => g.nama_gedung))).map((namaGedung) => (
+                <SelectItem key={namaGedung} value={namaGedung}>
+                  {namaGedung}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
 
-        {/* Zona Filter */}
+        {/* ================= ZONA ================= */}
         <div className="flex-1">
-          <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-2">
+          <label className="flex items-center gap-2 text-sm font-medium mb-2">
             <MapPinned className="h-4 w-4 text-primary" />
             Zona
           </label>
@@ -62,10 +95,17 @@ const FilterBar = ({
             disabled={!selectedGedung}
           >
             <SelectTrigger className="w-full">
-              <SelectValue placeholder={selectedGedung ? "Pilih Zona" : "Pilih gedung terlebih dahulu"} />
+              <SelectValue
+                placeholder={
+                  selectedGedung
+                    ? 'Pilih Zona'
+                    : 'Pilih gedung terlebih dahulu'
+                }
+              />
             </SelectTrigger>
             <SelectContent>
-              {zonas.map((zona) => (
+              {selectedGedung && <SelectItem value="all">Semua Zona</SelectItem>}
+              {zonaOptions.map((zona) => (
                 <SelectItem key={zona} value={zona}>
                   {zona}
                 </SelectItem>
@@ -74,9 +114,9 @@ const FilterBar = ({
           </Select>
         </div>
 
-        {/* Lantai Filter */}
+        {/* ================= LANTAI ================= */}
         <div className="flex-1">
-          <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-2">
+          <label className="flex items-center gap-2 text-sm font-medium mb-2">
             <Layers className="h-4 w-4 text-primary" />
             Lantai
           </label>
@@ -85,6 +125,7 @@ const FilterBar = ({
               <SelectValue placeholder="Pilih Lantai" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="all">Semua Lantai</SelectItem>
               {lantaiOptions.map((lantai) => (
                 <SelectItem key={lantai} value={lantai.toString()}>
                   Lantai {lantai}
@@ -94,7 +135,7 @@ const FilterBar = ({
           </Select>
         </div>
 
-        {/* Reset Button */}
+        {/* ================= RESET ================= */}
         <div className="flex items-end">
           <Button
             variant="outline"
@@ -106,6 +147,7 @@ const FilterBar = ({
             <RotateCcw className="h-4 w-4" />
           </Button>
         </div>
+
       </div>
     </div>
   );

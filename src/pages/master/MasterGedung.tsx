@@ -1,82 +1,201 @@
-import { useState } from 'react';
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { Plus, Pencil, Trash2, Building2, Search } from 'lucide-react';
-import { gedungList, Gedung } from '@/data/rooms';
-import { toast } from 'sonner';
+import { useEffect, useState } from "react";
+import Footer from "@/components/Footer";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Building2,
+  Search,
+  RotateCcw,
+} from "lucide-react";
+import { toast } from "sonner";
+import api from "@/lib/api";
 
+/* =======================
+   TYPE
+======================= */
+interface Gedung {
+  id_gedung: number;
+  nama_gedung: string;
+  zona: string | null;
+}
+
+/* =======================
+   COMPONENT
+======================= */
 const MasterGedung = () => {
-  const [gedungs, setGedungs] = useState<Gedung[]>(gedungList);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [gedungs, setGedungs] = useState<Gedung[]>([]);
+  const [groupedGedungs, setGroupedGedungs] = useState<Gedung[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [zonaFilter, setZonaFilter] = useState("Semua");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingGedung, setEditingGedung] = useState<Gedung | null>(null);
-  const [formData, setFormData] = useState({ name: '', zonas: '' });
+  const [formData, setFormData] = useState({ nama_gedung: "", zona: "" });
+  const [loading, setLoading] = useState(true);
 
-  const filteredGedungs = gedungs.filter(g =>
-    g.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  /* =======================
+     LOAD DATA
+  ======================= */
+  const fetchGedung = async () => {
+    try {
+      const res = await api.get("/gedung");
+      const data = Array.isArray(res.data) ? res.data : (Array.isArray(res.data?.data) ? res.data.data : []);
+      setGedungs(data);
 
-  const handleSubmit = () => {
-    if (!formData.name.trim()) {
-      toast.error('Nama gedung harus diisi');
+      // Group by nama_gedung (case insensitive)
+      const grouped = new Map<string, Gedung>();
+      data.forEach((g) => {
+        const key = g.nama_gedung.toLowerCase();
+        if (grouped.has(key)) {
+          const existing = grouped.get(key)!;
+          const existingZonas = existing.zona ? existing.zona.split(', ') : [];
+          const newZonas = g.zona ? g.zona.split(', ') : [];
+          const combinedZonas = Array.from(new Set([...existingZonas, ...newZonas]));
+          existing.zona = combinedZonas.join(', ');
+        } else {
+          grouped.set(key, { ...g });
+        }
+      });
+      setGroupedGedungs(Array.from(grouped.values()));
+    } catch {
+      toast.error("Gagal mengambil data gedung");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchGedung();
+  }, []);
+
+  /* =======================
+     FILTER
+  ======================= */
+  const zonaOptions = Array.from(
+    new Set(
+      groupedGedungs.flatMap((g) => g.zona ? g.zona.split(', ') : [])
+    )
+  ).sort();
+
+  const filteredGedungs = groupedGedungs.filter((g) => {
+    const matchesSearch = g.nama_gedung.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesZona = zonaFilter === "Semua" || (g.zona && g.zona.split(', ').includes(zonaFilter));
+    return matchesSearch && matchesZona;
+  });
+
+  /* =======================
+     SUBMIT
+  ======================= */
+  const handleSubmit = async () => {
+    if (!formData.nama_gedung.trim()) {
+      toast.error("Nama gedung harus diisi");
       return;
     }
 
-    const zonasArray = formData.zonas.split(',').map(z => z.trim()).filter(z => z);
+    try {
+      if (editingGedung) {
+        await api.put(`/gedung/${editingGedung.id_gedung}`, {
+          nama_gedung: formData.nama_gedung,
+          zona: formData.zona || null,
+        });
+        toast.success("Gedung berhasil diperbarui");
+      } else {
+        await api.post("/gedung", {
+          nama_gedung: formData.nama_gedung,
+          zona: formData.zona || null,
+        });
+        toast.success("Gedung berhasil ditambahkan");
+      }
 
-    if (editingGedung) {
-      setGedungs(prev =>
-        prev.map(g =>
-          g.id === editingGedung.id
-            ? { ...g, name: formData.name, zonas: zonasArray }
-            : g
-        )
-      );
-      toast.success('Gedung berhasil diperbarui');
-    } else {
-      const newGedung: Gedung = {
-        id: `g${Date.now()}`,
-        name: formData.name,
-        zonas: zonasArray,
-      };
-      setGedungs(prev => [...prev, newGedung]);
-      toast.success('Gedung berhasil ditambahkan');
+      resetForm();
+      fetchGedung();
+    } catch {
+      toast.error("Gagal menyimpan data gedung");
     }
-
-    resetForm();
   };
 
+  /* =======================
+     EDIT
+  ======================= */
   const handleEdit = (gedung: Gedung) => {
     setEditingGedung(gedung);
-    setFormData({ name: gedung.name, zonas: gedung.zonas.join(', ') });
+    setFormData({
+      nama_gedung: gedung.nama_gedung,
+      zona: gedung.zona || "",
+    });
     setIsDialogOpen(true);
   };
 
-  const handleDelete = (id: string) => {
-    setGedungs(prev => prev.filter(g => g.id !== id));
-    toast.success('Gedung berhasil dihapus');
+  /* =======================
+     DELETE
+  ======================= */
+  const handleDelete = async (id: number) => {
+    if (!confirm("Yakin ingin menghapus gedung ini?")) return;
+
+    try {
+      await api.delete(`/gedung/${id}`);
+      toast.success("Gedung berhasil dihapus");
+      fetchGedung();
+    } catch {
+      toast.error("Gagal menghapus gedung");
+    }
   };
 
+  /* =======================
+     RESET
+  ======================= */
   const resetForm = () => {
-    setFormData({ name: '', zonas: '' });
+    setFormData({ nama_gedung: "", zona: "" });
     setEditingGedung(null);
     setIsDialogOpen(false);
   };
 
+  const resetFilters = () => {
+    setSearchTerm("");
+    setZonaFilter("Semua");
+  };
+
+  /* =======================
+     RENDER
+  ======================= */
   return (
     <div className="min-h-screen bg-background">
-      <Navbar />
-      
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
+          <h1 className="text-3xl font-bold flex items-center gap-3">
             <Building2 className="h-8 w-8 text-primary" />
             Master Gedung
           </h1>
@@ -86,110 +205,163 @@ const MasterGedung = () => {
         </div>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-            <CardTitle className="text-lg font-medium">Daftar Gedung</CardTitle>
-            <div className="flex items-center gap-3">
+          <CardHeader className="flex flex-row justify-between">
+            <CardTitle>Daftar Gedung</CardTitle>
+
+            <div className="flex gap-3">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" />
                 <Input
                   placeholder="Cari gedung..."
+                  className="pl-9 w-64"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9 w-64"
                 />
               </div>
-              <Dialog open={isDialogOpen} onOpenChange={(open) => {
-                setIsDialogOpen(open);
-                if (!open) resetForm();
-              }}>
+
+              <Select value={zonaFilter} onValueChange={setZonaFilter}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Filter Zona" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Semua">Semua</SelectItem>
+                  {zonaOptions.map((zona) => (
+                    <SelectItem key={zona} value={zona}>
+                      {zona}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={resetFilters}
+                disabled={searchTerm === "" && zonaFilter === "Semua"}
+                className="h-10 w-10 shrink-0"
+              >
+                <RotateCcw className="h-4 w-4" />
+              </Button>
+
+              <Dialog
+                open={isDialogOpen}
+                onOpenChange={(open) => {
+                  setIsDialogOpen(open);
+                  if (!open) resetForm();
+                }}
+              >
                 <DialogTrigger asChild>
                   <Button className="gap-2">
                     <Plus className="h-4 w-4" />
                     Tambah Gedung
                   </Button>
                 </DialogTrigger>
+
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle>
-                      {editingGedung ? 'Edit Gedung' : 'Tambah Gedung Baru'}
+                      {editingGedung
+                        ? "Edit Gedung"
+                        : "Tambah Gedung"}
                     </DialogTitle>
                   </DialogHeader>
+
                   <div className="grid gap-4 py-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="name">Nama Gedung</Label>
+                    <div>
+                      <Label>Nama Gedung</Label>
                       <Input
-                        id="name"
-                        placeholder="Contoh: Gedung A - Rektorat"
-                        value={formData.name}
-                        onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                        value={formData.nama_gedung}
+                        onChange={(e) =>
+                          setFormData((p) => ({
+                            ...p,
+                            nama_gedung: e.target.value,
+                          }))
+                        }
                       />
                     </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="zonas">Zona (pisahkan dengan koma)</Label>
+
+                    <div>
+                      <Label>Zona</Label>
                       <Input
-                        id="zonas"
-                        placeholder="Contoh: Zona Utara, Zona Selatan"
-                        value={formData.zonas}
-                        onChange={(e) => setFormData(prev => ({ ...prev, zonas: e.target.value }))}
+                        value={formData.zona}
+                        onChange={(e) =>
+                          setFormData((p) => ({
+                            ...p,
+                            zona: e.target.value,
+                          }))
+                        }
                       />
                     </div>
                   </div>
+
                   <DialogFooter>
-                    <Button variant="outline" onClick={resetForm}>Batal</Button>
+                    <Button variant="outline" onClick={resetForm}>
+                      Batal
+                    </Button>
                     <Button onClick={handleSubmit}>
-                      {editingGedung ? 'Simpan Perubahan' : 'Tambah Gedung'}
+                      {editingGedung
+                        ? "Simpan Perubahan"
+                        : "Tambah Gedung"}
                     </Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
             </div>
           </CardHeader>
+
           <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-12">No</TableHead>
+                  <TableHead>No</TableHead>
                   <TableHead>Nama Gedung</TableHead>
                   <TableHead>Zona</TableHead>
-                  <TableHead className="w-32 text-center">Aksi</TableHead>
+                  <TableHead className="text-center">
+                    Aksi
+                  </TableHead>
                 </TableRow>
               </TableHeader>
+
               <TableBody>
-                {filteredGedungs.length === 0 ? (
+                {loading ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                      Tidak ada data gedung
+                    <TableCell colSpan={4} className="text-center">
+                      Loading...
+                    </TableCell>
+                  </TableRow>
+                ) : filteredGedungs.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center">
+                      Tidak ada data
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredGedungs.map((gedung, index) => (
-                    <TableRow key={gedung.id}>
-                      <TableCell className="font-medium">{index + 1}</TableCell>
-                      <TableCell className="font-medium">{gedung.name}</TableCell>
+                  filteredGedungs.map((g, i) => (
+                    <TableRow key={g.id_gedung}>
+                      <TableCell>{i + 1}</TableCell>
+                      <TableCell>{g.nama_gedung}</TableCell>
                       <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {gedung.zonas.map((zona, i) => (
-                            <Badge key={i} variant="secondary" className="text-xs">
-                              {zona}
-                            </Badge>
-                          ))}
-                        </div>
+                        {g.zona ? (
+                          <Badge variant="secondary">
+                            {g.zona}
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center justify-center gap-2">
+                        <div className="flex justify-center gap-2">
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => handleEdit(gedung)}
-                            className="h-8 w-8 text-muted-foreground hover:text-primary"
+                            onClick={() => handleEdit(g)}
                           >
                             <Pencil className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => handleDelete(gedung.id)}
-                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                            onClick={() => handleDelete(g.id_gedung)}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>

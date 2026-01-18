@@ -1,4 +1,3 @@
-import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { Building2, Users, GraduationCap, Briefcase, CheckCircle } from 'lucide-react';
 
@@ -26,7 +25,6 @@ const userRoles = [
 const Tentang = () => {
   return (
     <div className="min-h-screen flex flex-col">
-      <Navbar />
       <main className="flex-1">
         {/* Header */}
         <section className="bg-gradient-hero py-16 md:py-24">
