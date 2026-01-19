@@ -87,7 +87,8 @@ CREATE TABLE `peminjaman` (
   `nama_pengguna` varchar(100) NOT NULL,
   `keperluan` text,
   `locked_at` datetime DEFAULT NULL,
-  `created_at` datetime DEFAULT current_timestamp()
+  `created_at` datetime DEFAULT current_timestamp(),
+  PRIMARY KEY (`id_peminjaman`)
 ) ENGINE=InnoDB;
 
 INSERT INTO `peminjaman` VALUES
@@ -105,7 +106,8 @@ CREATE TABLE `riwayat_peminjaman` (
   `status_baru` enum('draft','locked','confirmed','expired') NOT NULL,
   `keterangan` varchar(255) DEFAULT NULL,
   `keperluan` text,
-  `created_at` datetime DEFAULT current_timestamp()
+  `created_at` datetime DEFAULT current_timestamp(),
+  PRIMARY KEY (`id_riwayat`)
 ) ENGINE=InnoDB;
 
 INSERT INTO `riwayat_peminjaman`
@@ -115,6 +117,83 @@ VALUES
 (2,1,'locked','confirmed','Disetujui admin & kepala RT','Keperluan peminjaman 1'),
 (3,2,'draft','locked','Menunggu persetujuan','Keperluan peminjaman 2'),
 (4,3,'draft','confirmed','Disetujui langsung','Keperluan peminjaman 3');
+
+CREATE TABLE `laporan_peminjaman` (
+  `id_laporan` int(11) NOT NULL AUTO_INCREMENT,
+  `id_riwayat` int(11) NOT NULL,
+  `id_peminjaman` int(11) NOT NULL,
+  `id_user` int(11) NOT NULL,
+  `id_ruangan` int(11) NOT NULL,
+  `status_sebelumnya` enum('draft','locked','confirmed','expired') DEFAULT NULL,
+  `status_baru` enum('draft','locked','confirmed','expired') NOT NULL,
+  `keterangan` varchar(255) DEFAULT NULL,
+  `created_at` datetime DEFAULT current_timestamp(),
+  `tanggal` date NOT NULL,
+  `jam_mulai` time NOT NULL,
+  `jam_selesai` time NOT NULL,
+  `nama_pengguna` varchar(100) NOT NULL,
+  `keperluan` text,
+  `nama_ruangan` varchar(50) NOT NULL,
+  `lantai` int(11) DEFAULT NULL,
+  `nama_gedung` varchar(50) NOT NULL,
+  `zona` varchar(10) DEFAULT NULL,
+  `nama_user` varchar(100) NOT NULL,
+  `role` enum('mahasiswa','admin_rt','kepala_rt') NOT NULL,
+  `locked_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id_laporan`),
+  KEY `fk_laporan_riwayat` (`id_riwayat`),
+  KEY `fk_laporan_peminjaman` (`id_peminjaman`),
+  CONSTRAINT `fk_laporan_riwayat` FOREIGN KEY (`id_riwayat`) REFERENCES `riwayat_peminjaman` (`id_riwayat`),
+  CONSTRAINT `fk_laporan_peminjaman` FOREIGN KEY (`id_peminjaman`) REFERENCES `peminjaman` (`id_peminjaman`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Populate laporan_peminjaman for existing riwayat_peminjaman
+INSERT INTO `laporan_peminjaman` (
+  `id_riwayat`,
+  `id_peminjaman`,
+  `id_user`,
+  `id_ruangan`,
+  `status_sebelumnya`,
+  `status_baru`,
+  `keterangan`,
+  `tanggal`,
+  `jam_mulai`,
+  `jam_selesai`,
+  `nama_pengguna`,
+  `keperluan`,
+  `nama_ruangan`,
+  `lantai`,
+  `nama_gedung`,
+  `zona`,
+  `nama_user`,
+  `role`,
+  `locked_at`
+)
+SELECT
+  rp.id_riwayat,
+  rp.id_peminjaman,
+  p.id_user,
+  p.id_ruangan,
+  rp.status_sebelumnya,
+  rp.status_baru,
+  rp.keterangan,
+  p.tanggal,
+  p.jam_mulai,
+  p.jam_selesai,
+  p.nama_pengguna,
+  COALESCE(rp.keperluan, p.keperluan),
+  r.nama_ruangan,
+  r.lantai,
+  g.nama_gedung,
+  g.zona,
+  u.nama,
+  u.role,
+  p.locked_at
+FROM `riwayat_peminjaman` rp
+JOIN `peminjaman` p ON rp.id_peminjaman = p.id_peminjaman
+JOIN `ruangan` r ON p.id_ruangan = r.id_ruangan
+JOIN `gedung` g ON r.id_gedung = g.id_gedung
+JOIN `users` u ON p.id_user = u.id_user;
 
 -- =========================
 -- TABLE APPROVAL
@@ -142,8 +221,6 @@ CREATE TABLE `disposisi` (
 ALTER TABLE `gedung` ADD PRIMARY KEY (`id_gedung`);
 ALTER TABLE `users` ADD PRIMARY KEY (`id_user`);
 ALTER TABLE `ruangan` ADD PRIMARY KEY (`id_ruangan`);
-ALTER TABLE `peminjaman` ADD PRIMARY KEY (`id_peminjaman`);
-ALTER TABLE `riwayat_peminjaman` ADD PRIMARY KEY (`id_riwayat`);
 ALTER TABLE `approval` ADD PRIMARY KEY (`id_approval`);
 ALTER TABLE `disposisi` ADD PRIMARY KEY (`id_disposisi`);
 
@@ -163,4 +240,64 @@ ALTER TABLE `approval`
 ALTER TABLE `disposisi`
   ADD CONSTRAINT `fk_disposisi_peminjaman` FOREIGN KEY (`id_peminjaman`) REFERENCES `peminjaman` (`id_peminjaman`);
 
+
+
+-- =========================
+-- TRIGGER FOR LAPORAN PEMINJAMAN
+-- =========================
+DELIMITER ;;
+CREATE TRIGGER `insert_laporan_peminjaman` AFTER INSERT ON `riwayat_peminjaman`
+FOR EACH ROW
+BEGIN
+  INSERT INTO `laporan_peminjaman` (
+    `id_riwayat`,
+    `id_peminjaman`,
+    `id_user`,
+    `id_ruangan`,
+    `status_sebelumnya`,
+    `status_baru`,
+    `keterangan`,
+    `tanggal`,
+    `jam_mulai`,
+    `jam_selesai`,
+    `nama_pengguna`,
+    `keperluan`,
+    `nama_ruangan`,
+    `lantai`,
+    `nama_gedung`,
+    `zona`,
+    `nama_user`,
+    `role`,
+    `locked_at`
+  )
+  SELECT
+    NEW.id_riwayat,
+    NEW.id_peminjaman,
+    p.id_user,
+    p.id_ruangan,
+    NEW.status_sebelumnya,
+    NEW.status_baru,
+    NEW.keterangan,
+    p.tanggal,
+    p.jam_mulai,
+    p.jam_selesai,
+    p.nama_pengguna,
+    COALESCE(NEW.keperluan, p.keperluan),
+    r.nama_ruangan,
+    r.lantai,
+    g.nama_gedung,
+    g.zona,
+    u.nama,
+    u.role,
+    p.locked_at
+  FROM `peminjaman` p
+  JOIN `ruangan` r ON p.id_ruangan = r.id_ruangan
+  JOIN `gedung` g ON r.id_gedung = g.id_gedung
+  JOIN `users` u ON p.id_user = u.id_user
+  WHERE p.id_peminjaman = NEW.id_peminjaman;
+END;;
+DELIMITER ;
+
 COMMIT;
+
+
