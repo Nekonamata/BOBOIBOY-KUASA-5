@@ -401,12 +401,6 @@ const Navbar = () => {
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
-                      <Link to="/master/lantai" className="flex items-center gap-2 cursor-pointer w-full">
-                        <Layers className="h-4 w-4" />
-                        Master Lantai
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
                       <Link to="/master/ruangan" className="flex items-center gap-2 cursor-pointer w-full">
                         <DoorOpen className="h-4 w-4" />
                         Master Ruangan
@@ -635,14 +629,6 @@ const Navbar = () => {
                     >
                       <Building2 className="h-4 w-4" />
                       Master Gedung
-                    </Link>
-                    <Link
-                      to="/master/lantai"
-                      className="flex items-center gap-3 px-4 py-3 pl-8 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                      onClick={() => setIsOpen(false)}
-                    >
-                      <Layers className="h-4 w-4" />
-                      Master Lantai
                     </Link>
                     <Link
                       to="/master/ruangan"

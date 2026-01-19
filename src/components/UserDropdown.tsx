@@ -59,24 +59,16 @@ const UserDropdown = () => {
         </div>
 
         <div className="py-1">
-          <Link 
-            to="/profil" 
+          <Link
+            to="/profil"
             className="flex items-center gap-3 px-4 py-2 text-sm text-foreground hover:bg-accent transition-colors"
             onClick={() => setIsOpen(false)}
           >
             <User className="h-4 w-4" />
             <span>Profil Saya</span>
           </Link>
-          <Link 
-            to="/profil?tab=peminjaman" 
-            className="flex items-center gap-3 px-4 py-2 text-sm text-foreground hover:bg-accent transition-colors"
-            onClick={() => setIsOpen(false)}
-          >
-            <Calendar className="h-4 w-4" />
-            <span>Pinjam Ruangan</span>
-          </Link>
-          <Link 
-            to="/profil?tab=riwayat" 
+          <Link
+            to="/profil?tab=riwayat"
             className="flex items-center gap-3 px-4 py-2 text-sm text-foreground hover:bg-accent transition-colors"
             onClick={() => setIsOpen(false)}
           >

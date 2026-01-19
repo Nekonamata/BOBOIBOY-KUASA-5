@@ -1,5 +1,5 @@
 import api from "@/lib/api";
-import { StatusRiwayatPeminjaman } from "@/types/peminjaman";
+import { StatusRiwayatPeminjaman, LaporanPeminjamanData } from "@/types/peminjaman";
 
 export interface CreatePeminjamanData {
   id_user: number;
@@ -55,7 +55,17 @@ export interface CreateRiwayatData {
 
 export const createPeminjaman = async (data: CreatePeminjamanData): Promise<PeminjamanData> => {
   const response = await api.post("/peminjaman", data);
-  return response.data;
+  const peminjaman = response.data;
+
+  // Create initial 'draft' riwayat to trigger laporan_peminjaman population
+  await createRiwayatPeminjaman({
+    id_peminjaman: peminjaman.id_peminjaman,
+    status_sebelumnya: null,
+    status_baru: 'draft',
+    keterangan: 'Peminjaman dibuat'
+  });
+
+  return peminjaman;
 };
 
 export const getRiwayatPeminjaman = async (): Promise<PeminjamanData[]> => {
@@ -87,3 +97,11 @@ export const getAllRiwayatPeminjaman = async (): Promise<RiwayatPeminjamanData[]
   const response = await api.get("/riwayat-peminjaman");
   return response.data;
 };
+
+// Laporan Peminjaman functions
+export const getAllLaporanPeminjaman = async (): Promise<LaporanPeminjamanData[]> => {
+  const response = await api.get("/laporan-peminjaman");
+  return response.data;
+};
+
+export type { LaporanPeminjamanData };

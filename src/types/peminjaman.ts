@@ -32,3 +32,22 @@ export interface Peminjaman {
   ruangan?: Ruangan;
   user?: User;
 }
+
+export interface LaporanPeminjamanData {
+  id_laporan: number;
+  id_peminjaman: number;
+  id_user: number;
+  id_ruangan: number;
+  tanggal: string;
+  jam_mulai: string;
+  jam_selesai: string;
+  nama_pengguna: string;
+  keperluan?: string;
+  status: StatusRiwayatPeminjaman;
+  locked_at?: string | null;
+  created_at: string;
+  nama_ruangan: string;
+  nama_gedung: string;
+  lantai: number;
+  nama_user: string;
+}

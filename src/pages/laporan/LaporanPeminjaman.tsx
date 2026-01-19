@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Footer from '@/components/Footer';
 import api from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
-import { getAllRiwayatPeminjaman, RiwayatPeminjamanData } from '@/services/peminjaman.service';
+import { getAllLaporanPeminjaman, LaporanPeminjamanData } from '@/services/peminjaman.service';
 
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
@@ -49,19 +49,21 @@ interface Peminjaman {
   ruangan: Ruangan;
 }
 
-type PeriodeType = 'harian' | 'bulanan' | 'tahunan';
-type StatusFilter = 'all' | 'pending' | 'disetujui' | 'ditolak' | 'selesai';
+type PeriodeType = 'harian' | 'bulanan' | 'tahunan' | 'all';
+type StatusFilter = 'all' | 'draft' | 'locked' | 'confirmed' | 'expired';
+
+
 
 /* ================== COMPONENT ================== */
 const LaporanPeminjaman = () => {
   const { user } = useAuth();
   const [gedungList, setGedungList] = useState<Gedung[]>([]);
   const [ruanganList, setRuanganList] = useState<Ruangan[]>([]);
-  const [peminjamanList, setPeminjamanList] = useState<Peminjaman[]>([]);
+  const [laporanList, setLaporanList] = useState<LaporanPeminjamanData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [periodeType, setPeriodeType] = useState<PeriodeType>('bulanan');
+  const [periodeType, setPeriodeType] = useState<PeriodeType>('all');
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [selectedMonth, setSelectedMonth] = useState((new Date().getMonth() + 1).toString().padStart(2, '0'));
   const [selectedDay, setSelectedDay] = useState(new Date().getDate().toString().padStart(2, '0'));
@@ -76,14 +78,15 @@ const LaporanPeminjaman = () => {
       try {
         setLoading(true);
         setError(null);
-        const [gedungRes, ruanganRes, peminjamanRes] = await Promise.all([
+        const [gedungRes, ruanganRes, laporanRes] = await Promise.all([
           api.get('/gedung'),
           api.get('/ruangan'),
-          api.get('/peminjaman')
+          getAllLaporanPeminjaman()
         ]);
+
         setGedungList(gedungRes.data?.data || []);
         setRuanganList(ruanganRes.data?.data || []);
-        setPeminjamanList(peminjamanRes.data?.data || []);
+        setLaporanList(laporanRes);
       } catch (err: any) {
         console.error('Error fetching data:', err);
         setError('Gagal memuat data. Silakan coba lagi.');
@@ -104,51 +107,55 @@ const LaporanPeminjaman = () => {
     });
   }, [ruanganList, selectedGedung, selectedLantai]);
 
-  /* ================== FILTER PEMINJAMAN ================== */
+  /* ================== FILTER LAPORAN ================== */
   const filteredData = useMemo(() => {
-    let data = peminjamanList;
+    let data = laporanList;
 
-    // Filter by current user
-    if (user) {
-      data = data.filter(p => p.id_user === parseInt(user.id));
+    // Only filter by current user if user is logged in and is a mahasiswa (not admin)
+    // For admin users, show all data
+    if (user && user.role === 'mahasiswa') {
+      data = data.filter(r => r.id_user === parseInt(user.id));
     }
 
     if (selectedGedung !== 'all') {
-      data = data.filter(p => p.ruangan.gedung.nama_gedung === selectedGedung);
+      data = data.filter(r => r.nama_gedung === selectedGedung);
     }
     if (selectedLantai !== 'all') {
-      data = data.filter(p => p.ruangan.lantai === Number(selectedLantai));
+      data = data.filter(r => r.lantai === Number(selectedLantai));
     }
     if (selectedRuangan !== 'all') {
-      data = data.filter(p => p.ruangan.id_ruangan.toString() === selectedRuangan);
+      data = data.filter(r => r.id_ruangan.toString() === selectedRuangan);
     }
     if (selectedStatus !== 'all') {
-      data = data.filter(p => p.status === selectedStatus);
+      data = data.filter(r => r.status === selectedStatus);
     }
 
-    data = data.filter(p => {
-      const date = parseISO(p.tanggal);
+    // Date filtering - make it less restrictive by default
+    if (periodeType !== 'all') {
+      data = data.filter(r => {
+        const date = parseISO(r.created_at);
 
-      if (periodeType === 'tahunan') {
-        return isWithinInterval(date, {
-          start: startOfYear(new Date(Number(selectedYear), 0)),
-          end: endOfYear(new Date(Number(selectedYear), 0))
-        });
-      }
+        if (periodeType === 'tahunan') {
+          return isWithinInterval(date, {
+            start: startOfYear(new Date(Number(selectedYear), 0)),
+            end: endOfYear(new Date(Number(selectedYear), 0))
+          });
+        }
 
-      if (periodeType === 'bulanan') {
-        return isWithinInterval(date, {
-          start: startOfMonth(new Date(Number(selectedYear), Number(selectedMonth) - 1)),
-          end: endOfMonth(new Date(Number(selectedYear), Number(selectedMonth) - 1))
-        });
-      }
+        if (periodeType === 'bulanan') {
+          return isWithinInterval(date, {
+            start: startOfMonth(new Date(Number(selectedYear), Number(selectedMonth) - 1)),
+            end: endOfMonth(new Date(Number(selectedYear), Number(selectedMonth) - 1))
+          });
+        }
 
-      return p.tanggal === `${selectedYear}-${selectedMonth}-${selectedDay}`;
-    });
+        return r.created_at.startsWith(`${selectedYear}-${selectedMonth}-${selectedDay}`);
+      });
+    }
 
     return data;
   }, [
-    peminjamanList,
+    laporanList,
     selectedGedung,
     selectedLantai,
     selectedRuangan,
@@ -156,7 +163,8 @@ const LaporanPeminjaman = () => {
     periodeType,
     selectedYear,
     selectedMonth,
-    selectedDay
+    selectedDay,
+    user
   ]);
 
   const resetFilter = () => {
@@ -167,14 +175,19 @@ const LaporanPeminjaman = () => {
   };
 
   const statusBadge = (status: string) => {
+    if (status === 'N/A') return <Badge variant="outline">{status}</Badge>;
     const map: any = {
+      draft: 'bg-gray-100 text-gray-800',
+      locked: 'bg-blue-100 text-blue-800',
+      confirmed: 'bg-green-100 text-green-800',
+      expired: 'bg-red-100 text-red-800',
       menunggu: 'bg-yellow-100 text-yellow-800',
       disetujui: 'bg-green-100 text-green-800',
       ditolak: 'bg-red-100 text-red-800',
       diproses: 'bg-orange-100 text-orange-800',
       selesai: 'bg-blue-100 text-blue-800',
     };
-    return <Badge className={map[status]}>{status}</Badge>;
+    return <Badge className={map[status] || 'bg-gray-100 text-gray-800'}>{status}</Badge>;
   };
 
   /* ================== RENDER ================== */
@@ -220,6 +233,14 @@ const LaporanPeminjaman = () => {
           <FileText /> Laporan Peminjaman
         </h1>
 
+        {/* Debug Info */}
+        <div className="mb-4 p-4 bg-gray-100 rounded">
+          <p><strong>Debug Info:</strong></p>
+          <p>Total laporan data: {laporanList.length}</p>
+          <p>Filtered data: {filteredData.length}</p>
+          <p>User: {user ? `${(user as any).nama || 'Unknown'} (${user.role})` : 'Not logged in'}</p>
+        </div>
+
         {/* FILTER */}
         <Card className="mb-6">
           <CardHeader>
@@ -234,9 +255,9 @@ const LaporanPeminjaman = () => {
               <SelectTrigger><SelectValue placeholder="Gedung" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Semua Gedung</SelectItem>
-                {gedungList.map(g => (
-                  <SelectItem key={g.id_gedung} value={g.nama_gedung}>
-                    {g.nama_gedung}
+                {Array.from(new Set(gedungList.map(g => g.nama_gedung))).map((namaGedung) => (
+                  <SelectItem key={namaGedung} value={namaGedung}>
+                    {namaGedung}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -264,6 +285,17 @@ const LaporanPeminjaman = () => {
               </SelectContent>
             </Select>
 
+            <Select value={selectedStatus} onValueChange={(value) => setSelectedStatus(value as StatusFilter)}>
+              <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Semua Status</SelectItem>
+                <SelectItem value="draft">Draft</SelectItem>
+                <SelectItem value="locked">Locked</SelectItem>
+                <SelectItem value="confirmed">Confirmed</SelectItem>
+                <SelectItem value="expired">Expired</SelectItem>
+              </SelectContent>
+            </Select>
+
             <Button variant="outline" onClick={resetFilter}>
               <RotateCcw className="mr-2 h-4 w-4" /> Reset
             </Button>
@@ -278,26 +310,28 @@ const LaporanPeminjaman = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>No</TableHead>
-                  <TableHead>Tanggal</TableHead>
+                  <TableHead>ID Peminjaman</TableHead>
+                  <TableHead>Tanggal Dibuat</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead>Ruangan</TableHead>
                   <TableHead>Gedung</TableHead>
                   <TableHead>Lantai</TableHead>
                   <TableHead>Peminjam</TableHead>
                   <TableHead>Jam</TableHead>
-                  <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredData.map((p, i) => (
-                  <TableRow key={p.id_peminjaman}>
+                {filteredData.map((r, i) => (
+                  <TableRow key={r.id_laporan}>
                     <TableCell>{i + 1}</TableCell>
-                    <TableCell>{format(parseISO(p.tanggal), 'dd MMM yyyy', { locale: id })}</TableCell>
-                    <TableCell>{p.ruangan.nama_ruangan}</TableCell>
-                    <TableCell>{p.ruangan.gedung.nama_gedung}</TableCell>
-                    <TableCell>{p.ruangan.lantai}</TableCell>
-                    <TableCell>{p.nama_pengguna}</TableCell>
-                    <TableCell>{p.jam_mulai} - {p.jam_selesai}</TableCell>
-                    <TableCell>{statusBadge(p.status)}</TableCell>
+                    <TableCell>{r.id_peminjaman}</TableCell>
+                    <TableCell>{format(parseISO(r.created_at), 'dd MMM yyyy HH:mm', { locale: id })}</TableCell>
+                    <TableCell>{statusBadge(r.status)}</TableCell>
+                    <TableCell>{r.nama_ruangan}</TableCell>
+                    <TableCell>{r.nama_gedung}</TableCell>
+                    <TableCell>{r.lantai}</TableCell>
+                    <TableCell>{r.nama_user}</TableCell>
+                    <TableCell>{`${r.jam_mulai} - ${r.jam_selesai}`}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

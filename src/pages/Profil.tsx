@@ -1,21 +1,16 @@
 // src/pages/Profil.tsx
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { User, Calendar, History, Settings, Printer, X, Download, CheckCircle, Clock, AlertCircle, Plus, Search, Filter, RefreshCw } from 'lucide-react';
+import { User, Calendar, History, Settings, X, Download, CheckCircle, Clock, AlertCircle, Search, Filter, RefreshCw } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { getRiwayatPeminjaman, PeminjamanData as ApiPeminjamanData } from '@/services/peminjaman.service';
-import api from '@/lib/api';
 import jsPDF from 'jspdf';
-import { safeDateFormatWithWeekday, safeDateTimeFormat } from '@/lib/date-utils';
+import { safeDateTimeFormat } from '@/lib/date-utils';
 
 // Interface untuk data peminjaman (frontend format)
 interface PeminjamanData {
@@ -35,125 +30,17 @@ interface PeminjamanData {
 }
 
 const Profil = () => {
-  const { user, tambahPeminjaman } = useAuth();
+  const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') || 'profil';
   const [selectedPeminjaman, setSelectedPeminjaman] = useState<PeminjamanData | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
-  const [showPeminjamanModal, setShowPeminjamanModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('semua');
-  const [loading, setLoading] = useState(false);
-
-  // Form state
-  const [formData, setFormData] = useState({
-    ruangan: '',
-    gedung: '',
-    tanggal: '',
-    waktuMulai: '08:00',
-    waktuSelesai: '10:00',
-    keperluan: '',
-    jumlahPeserta: 1,
-    catatan: ''
-  });
 
 
 
-  // Fungsi untuk mengajukan peminjaman baru
-  const handleAjukanPeminjaman = async () => {
-    // Validasi
-    if (!formData.ruangan || !formData.gedung || !formData.tanggal || !formData.keperluan) {
-      toast({
-        title: "Form tidak lengkap",
-        description: "Harap isi semua field yang wajib diisi",
-        variant: "destructive",
-      });
-      return;
-    }
 
-    // Hitung durasi
-    const waktuMulai = parseInt(formData.waktuMulai.split(':')[0]);
-    const waktuSelesai = parseInt(formData.waktuSelesai.split(':')[0]);
-    const durasi = waktuSelesai - waktuMulai;
-
-    if (durasi <= 0) {
-      toast({
-        title: "Waktu tidak valid",
-        description: "Waktu selesai harus lebih besar dari waktu mulai",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      setLoading(true);
-
-      // Find room ID from available rooms
-      const selectedRoom = availableRooms.find(room => room.name === formData.ruangan);
-      console.log('Available rooms:', availableRooms);
-      console.log('Selected room name:', formData.ruangan);
-      console.log('Found selected room:', selectedRoom);
-
-      if (!selectedRoom) {
-        toast({
-          title: "Ruangan tidak ditemukan",
-          description: "Ruangan yang dipilih tidak valid",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      console.log('Selected room ID:', selectedRoom.id);
-      console.log('Selected room ID type:', typeof selectedRoom.id);
-
-      if (!selectedRoom.id) {
-        console.error('ERROR: selectedRoom.id is null/undefined!');
-        console.error('selectedRoom object:', selectedRoom);
-        throw new Error('ID ruangan tidak ditemukan. Silakan refresh halaman dan coba lagi.');
-      }
-
-      // Submit via API
-      await tambahPeminjaman({
-        ruanganId: selectedRoom.id.toString(),
-        namaRuangan: formData.ruangan,
-        gedung: formData.gedung,
-        tanggal: formData.tanggal,
-        waktuMulai: formData.waktuMulai,
-        waktuSelesai: formData.waktuSelesai,
-        keperluan: formData.keperluan,
-      });
-
-      // Show success toast
-      toast({
-        title: "Peminjaman Diajukan",
-        description: `Permohonan peminjaman ${formData.ruangan} berhasil diajukan. Menunggu persetujuan.`,
-      });
-
-      // Reset form
-      setFormData({
-        ruangan: '',
-        gedung: '',
-        tanggal: '',
-        waktuMulai: '08:00',
-        waktuSelesai: '10:00',
-        keperluan: '',
-        jumlahPeserta: 1,
-        catatan: ''
-      });
-
-      // Close modal
-      setShowPeminjamanModal(false);
-    } catch (error) {
-      console.error('Error submitting peminjaman:', error);
-      toast({
-        title: "Gagal Mengajukan Peminjaman",
-        description: "Terjadi kesalahan saat mengajukan peminjaman. Silakan coba lagi.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // Use riwayatPeminjaman from useAuth hook
   const riwayatPeminjaman = useAuth().riwayatPeminjaman;
@@ -162,7 +49,6 @@ const Profil = () => {
 
   const tabs = [
     { id: 'profil', label: 'Profil Saya', icon: <User className="h-4 w-4" /> },
-    { id: 'peminjaman', label: 'Pinjam Ruangan', icon: <Calendar className="h-4 w-4" /> },
     { id: 'riwayat', label: 'Riwayat Saya', icon: <History className="h-4 w-4" /> },
     { id: 'settings', label: 'Pengaturan', icon: <Settings className="h-4 w-4" /> },
   ];
@@ -350,29 +236,7 @@ const Profil = () => {
 
 
 
-  // Daftar ruangan tersedia (akan diambil dari API)
-  const [availableRooms, setAvailableRooms] = useState<Array<{id: number, name: string, building: string}>>([]);
 
-  // Load available rooms
-  useEffect(() => {
-    const loadRooms = async () => {
-      try {
-        const response = await api.get('/ruangan');
-        const rooms = response.data.map((room: any) => ({
-          id: room.id_ruangan,
-          name: room.nama_ruangan,
-          building: `${room.gedung.nama_gedung} Lantai ${room.lantai}`
-        }));
-        setAvailableRooms(rooms);
-      } catch (error) {
-        console.error('Error loading rooms:', error);
-        // Fallback to empty array
-        setAvailableRooms([]);
-      }
-    };
-
-    loadRooms();
-  }, []);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -417,20 +281,11 @@ const Profil = () => {
                   </CardTitle>
                   <CardDescription className="text-gray-600">
                     {activeTab === 'profil' && 'Kelola informasi profil pribadi Anda'}
-                    {activeTab === 'peminjaman' && 'Ajukan peminjaman ruangan untuk keperluan akademik'}
                     {activeTab === 'riwayat' && 'Lihat riwayat peminjaman ruangan yang telah dilakukan'}
                     {activeTab === 'settings' && 'Pengaturan akun dan preferensi sistem'}
                   </CardDescription>
                 </div>
-                {activeTab === 'peminjaman' && (
-                  <Button
-                    onClick={() => setShowPeminjamanModal(true)}
-                    className="gap-2 bg-gradient-to-r from-orange-500 to-red-500 hover:opacity-90 text-white"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Ajukan Peminjaman
-                  </Button>
-                )}
+
               </div>
             </CardHeader>
             <CardContent>
@@ -448,40 +303,7 @@ const Profil = () => {
                 </div>
               )}
               
-              {activeTab === 'peminjaman' && (
-                <div className="space-y-6">
-                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-xl border border-blue-200">
-                    <div className="flex items-center gap-3">
-                      <Calendar className="h-8 w-8 text-blue-600" />
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-900">Ajukan Peminjaman Ruangan</h3>
-                        <p className="text-gray-600">
-                          Gunakan form di bawah ini untuk mengajukan peminjaman ruangan di Unimus.
-                          Setelah pengajuan, Anda akan menerima notifikasi tentang status peminjaman.
-                        </p>
-                      </div>
-                    </div>
-                    <Button
-                      onClick={() => setShowPeminjamanModal(true)}
-                      className="mt-4 gap-2 bg-gradient-to-r from-orange-500 to-red-500 hover:opacity-90 text-white"
-                    >
-                      <Plus className="h-4 w-4" />
-                      Ajukan Peminjaman Baru
-                    </Button>
-                  </div>
 
-                  <div>
-                    <h4 className="font-medium text-gray-900 mb-3">Instruksi Pengajuan:</h4>
-                    <ol className="list-decimal pl-5 space-y-2 text-gray-600">
-                      <li>Pilih ruangan yang tersedia dari daftar</li>
-                      <li>Tentukan tanggal dan waktu peminjaman</li>
-                      <li>Isi keperluan dan jumlah peserta</li>
-                      <li>Ajukan permohonan dan tunggu notifikasi persetujuan</li>
-                      <li>Cek status pengajuan di tab "Riwayat Saya"</li>
-                    </ol>
-                  </div>
-                </div>
-              )}
               
               {activeTab === 'riwayat' && (
                 <div className="space-y-6">
@@ -545,15 +367,7 @@ const Profil = () => {
                             ? 'Tidak ada riwayat peminjaman yang sesuai dengan filter' 
                             : 'Belum ada riwayat peminjaman'}
                         </p>
-                        {!searchTerm && statusFilter === 'semua' && (
-                          <Button
-                            variant="outline"
-                            className="mt-4 border-gray-300 hover:bg-gray-100"
-                            onClick={() => setShowPeminjamanModal(true)}
-                          >
-                            Ajukan Peminjaman Pertama
-                          </Button>
-                        )}
+
                       </div>
                     ) : (
                       filteredPeminjaman.map((peminjaman) => (
@@ -660,172 +474,7 @@ const Profil = () => {
         </div>
       </div>
 
-      {/* Modal Ajukan Peminjaman */}
-      <Dialog open={showPeminjamanModal} onOpenChange={setShowPeminjamanModal}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto border border-gray-200">
-          <DialogHeader>
-            <DialogTitle className="text-2xl text-gray-900">Ajukan Peminjaman Ruangan</DialogTitle>
-            <DialogDescription className="text-gray-600">
-              Isi form di bawah ini untuk mengajukan peminjaman ruangan. Anda akan menerima notifikasi tentang status pengajuan.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-6 py-4">
-            {/* Pilih Ruangan */}
-            <div className="space-y-2">
-              <Label htmlFor="ruangan" className="text-gray-700">Pilih Ruangan *</Label>
-              <Select 
-                value={formData.ruangan} 
-                onValueChange={(value) => {
-                  const selectedRoom = availableRooms.find(room => room.name === value);
-                  setFormData({
-                    ...formData,
-                    ruangan: value,
-                    gedung: selectedRoom?.building || ''
-                  });
-                }}
-              >
-                <SelectTrigger className="border-gray-300">
-                  <SelectValue placeholder="Pilih ruangan" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableRooms.map((room) => (
-                    <SelectItem key={room.id} value={room.name}>
-                      {room.name} - {room.building}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
 
-            {/* Gedung (auto-filled) */}
-            <div className="space-y-2">
-              <Label htmlFor="gedung" className="text-gray-700">Gedung</Label>
-              <Input
-                id="gedung"
-                value={formData.gedung}
-                readOnly
-                className="bg-gray-50 border-gray-300 text-gray-600"
-              />
-            </div>
-
-            {/* Tanggal */}
-            <div className="space-y-2">
-              <Label htmlFor="tanggal" className="text-gray-700">Tanggal Peminjaman *</Label>
-              <Input
-                id="tanggal"
-                type="date"
-                value={formData.tanggal}
-                onChange={(e) => setFormData({...formData, tanggal: e.target.value})}
-                min={new Date().toISOString().split('T')[0]}
-                className="border-gray-300"
-              />
-            </div>
-
-            {/* Waktu */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="waktuMulai" className="text-gray-700">Waktu Mulai *</Label>
-                <Select 
-                  value={formData.waktuMulai} 
-                  onValueChange={(value) => setFormData({...formData, waktuMulai: value})}
-                >
-                  <SelectTrigger className="border-gray-300">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Array.from({ length: 13 }, (_, i) => {
-                      const hour = i + 7; // 07:00 to 19:00
-                      return (
-                        <SelectItem key={hour} value={`${hour.toString().padStart(2, '0')}:00`}>
-                          {hour.toString().padStart(2, '0')}:00
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="waktuSelesai" className="text-gray-700">Waktu Selesai *</Label>
-                <Select 
-                  value={formData.waktuSelesai} 
-                  onValueChange={(value) => setFormData({...formData, waktuSelesai: value})}
-                >
-                  <SelectTrigger className="border-gray-300">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Array.from({ length: 13 }, (_, i) => {
-                      const hour = i + 8; // 08:00 to 20:00
-                      return (
-                        <SelectItem key={hour} value={`${hour.toString().padStart(2, '0')}:00`}>
-                          {hour.toString().padStart(2, '0')}:00
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* Jumlah Peserta */}
-            <div className="space-y-2">
-              <Label htmlFor="jumlahPeserta" className="text-gray-700">Jumlah Peserta *</Label>
-              <Input
-                id="jumlahPeserta"
-                type="number"
-                min="1"
-                max="200"
-                value={formData.jumlahPeserta}
-                onChange={(e) => setFormData({...formData, jumlahPeserta: parseInt(e.target.value) || 1})}
-                className="border-gray-300"
-              />
-            </div>
-
-            {/* Keperluan */}
-            <div className="space-y-2">
-              <Label htmlFor="keperluan" className="text-gray-700">Keperluan Kegiatan *</Label>
-              <Textarea
-                id="keperluan"
-                placeholder="Contoh: Seminar Proposal, Rapat Koordinasi, Workshop, dll."
-                value={formData.keperluan}
-                onChange={(e) => setFormData({...formData, keperluan: e.target.value})}
-                rows={3}
-                className="border-gray-300"
-              />
-            </div>
-
-            {/* Catatan Tambahan */}
-            <div className="space-y-2">
-              <Label htmlFor="catatan" className="text-gray-700">Catatan Tambahan (Opsional)</Label>
-              <Textarea
-                id="catatan"
-                placeholder="Catatan khusus atau permintaan tambahan..."
-                value={formData.catatan}
-                onChange={(e) => setFormData({...formData, catatan: e.target.value})}
-                rows={2}
-                className="border-gray-300"
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => setShowPeminjamanModal(false)}
-              className="border-gray-300 text-gray-700 hover:bg-gray-100"
-            >
-              Batal
-            </Button>
-            <Button 
-              onClick={handleAjukanPeminjaman}
-              className="bg-gradient-to-r from-orange-500 to-red-500 hover:opacity-90 text-white"
-            >
-              Ajukan Peminjaman
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Modal Detail Peminjaman */}
       {showDetailModal && selectedPeminjaman && (

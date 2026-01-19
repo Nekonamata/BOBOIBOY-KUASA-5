@@ -531,14 +531,6 @@ export const useAuth = (): {
 
       const result = await createPeminjaman(apiData);
 
-      // Create riwayat entry for the new peminjaman
-      await createRiwayatPeminjaman({
-        id_peminjaman: result.id_peminjaman,
-        status_sebelumnya: null,
-        status_baru: result.status,
-        keterangan: 'Pengajuan peminjaman baru'
-      });
-
       // Map API status to local status
       let localStatus: Peminjaman['status'];
       switch (result.status) {
