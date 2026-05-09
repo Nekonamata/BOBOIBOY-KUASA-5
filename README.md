@@ -1,4 +1,4 @@
-# Welcome to your Lovable project
+# Sistem Peminjaman Ruangan Unimus (SIPRUS)
 
 ## Project info
 
