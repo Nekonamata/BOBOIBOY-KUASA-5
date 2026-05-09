@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+// src/hooks/useAuth.tsx
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { login as apiLogin, logout as apiLogout, checkAuth as apiCheckAuth, AuthUser } from '@/services/auth.service';
 import { createPeminjaman, CreatePeminjamanData, createRiwayatPeminjaman } from '@/services/peminjaman.service';
 import { safeDateFormatWithWeekday, safeDateFormatSimple } from '@/lib/date-utils';
@@ -63,7 +64,17 @@ export const useAuth = (): {
   const [error, setError] = useState<string | null>(null);
   const [riwayatPeminjaman, setRiwayatPeminjaman] = useState<Peminjaman[]>([]);
 
-  // Mock data riwayat peminjaman per user (ditambah lebih banyak data)
+  // ✅ PERBAIKAN: Gunakan useMemo agar reactive terhadap perubahan user
+  const isAdmin = useMemo(() => {
+    return user?.role === 'admin';
+  }, [user]);
+
+  // ✅ PERBAIKAN: Gunakan useMemo agar reactive
+  const isAuthenticated = useMemo(() => {
+    return user?.isAuthenticated || false;
+  }, [user]);
+
+  // Mock data riwayat peminjaman per user
   const mockRiwayat: Record<string, Peminjaman[]> = {
     'admin@unimus.ac.id': [
       {
@@ -210,34 +221,47 @@ export const useAuth = (): {
     ]
   };
 
+  // Helper untuk mapping AuthUser ke User
+  const mapAuthUserToUser = (authUser: AuthUser): User => {
+    return {
+      id: authUser.id?.toString() || '',
+      email: authUser.email || '',
+      name: authUser.name || authUser.name || '',
+      role: (authUser.role as 'admin' | 'mahasiswa' | 'dosen') || 'mahasiswa',
+      fakultas: (authUser as any).fakultas,
+      jurusan: (authUser as any).jurusan,
+      nim: (authUser as any).nim,
+      isAuthenticated: true
+    };
+  };
+
   // Cek status autentikasi menggunakan API dengan fallback
   const checkAuth = useCallback(async () => {
     try {
       setLoading(true);
-      setError(null); // Reset error state
+      setError(null);
       const token = localStorage.getItem('auth_token');
       const userData = localStorage.getItem('user_data');
 
       if (token && userData) {
         try {
-          // Coba cek autentikasi dengan API
           const authUser = await apiCheckAuth();
 
           if (authUser) {
-            setUser(authUser);
+            const mappedUser = mapAuthUserToUser(authUser);
+            setUser(mappedUser);
 
             // Load riwayat peminjaman dari API
             try {
               const { getRiwayatPeminjaman } = await import('@/services/peminjaman.service');
               const response = await getRiwayatPeminjaman();
 
-              // Filter hanya peminjaman milik user yang sedang login
-              const userPeminjaman = response.filter(peminjaman => peminjaman.id_user === parseInt(authUser.id));
+              const userPeminjaman = response.filter(
+                peminjaman => peminjaman.id_user === parseInt(mappedUser.id)
+              );
 
-              // Convert API data to frontend format
               const formattedData: Peminjaman[] = userPeminjaman.map(peminjaman => {
-                // Map database status to frontend display status
-                let displayStatus: 'menunggu' | 'disetujui' | 'ditolak' | 'diproses' | 'selesai';
+                let displayStatus: Peminjaman['status'];
                 switch (peminjaman.status) {
                   case 'confirmed':
                     displayStatus = 'disetujui';
@@ -262,29 +286,29 @@ export const useAuth = (): {
                   keperluan: peminjaman.keperluan || '',
                   status: displayStatus,
                   tanggalPengajuan: safeDateFormatSimple(peminjaman.created_at),
-                  tanggalDisetujui: (peminjaman.status as any) === 'confirmed' ? safeDateFormatSimple(peminjaman.locked_at || peminjaman.created_at) : undefined,
-                  nomorSurat: (peminjaman.status as any) === 'confirmed' ? `UNMS/${peminjaman.id_peminjaman}/SPR/I/2024` : undefined,
-                  jumlahPeserta: 1, // Default value since not in API
+                  tanggalDisetujui: peminjaman.status === 'confirmed' 
+                    ? safeDateFormatSimple(peminjaman.locked_at || peminjaman.created_at) 
+                    : undefined,
+                  nomorSurat: peminjaman.status === 'confirmed' 
+                    ? `UNMS/${peminjaman.id_peminjaman}/SPR/I/2024` 
+                    : undefined,
+                  jumlahPeserta: 1,
                   catatan: undefined
                 };
               });
 
-              // Urutkan berdasarkan tanggal pengajuan (terbaru dulu)
               const sortedData = formattedData.sort((a, b) => {
                 try {
-                  const dateA = new Date(a.tanggalPengajuan).getTime();
-                  const dateB = new Date(b.tanggalPengajuan).getTime();
-                  return dateB - dateA;
-                } catch (error) {
+                  return new Date(b.tanggalPengajuan).getTime() - new Date(a.tanggalPengajuan).getTime();
+                } catch {
                   return 0;
                 }
               });
 
               setRiwayatPeminjaman(sortedData);
             } catch (apiError) {
-              console.warn('API peminjaman tidak tersedia, menggunakan data localStorage:', apiError);
+              console.warn('API peminjaman tidak tersedia, menggunakan localStorage:', apiError);
 
-              // Fallback ke localStorage
               const storedPeminjaman = localStorage.getItem('user_peminjaman');
               let userPeminjaman: Peminjaman[] = [];
 
@@ -296,9 +320,8 @@ export const useAuth = (): {
                 }
               }
 
-              // Jika tidak ada di localStorage, gunakan mock data
-              if (userPeminjaman.length === 0 && authUser.email && mockRiwayat[authUser.email]) {
-                userPeminjaman = mockRiwayat[authUser.email];
+              if (userPeminjaman.length === 0 && mappedUser.email && mockRiwayat[mappedUser.email]) {
+                userPeminjaman = mockRiwayat[mappedUser.email];
               }
 
               setRiwayatPeminjaman(userPeminjaman);
@@ -306,27 +329,29 @@ export const useAuth = (): {
 
             setError(null);
           } else {
-            // Token tidak valid, logout
             console.warn('Token tidak valid, melakukan logout');
             await logout();
           }
         } catch (apiError) {
           console.warn('API tidak tersedia, menggunakan data localStorage:', apiError);
 
-          // Fallback ke localStorage jika API gagal
           try {
             const userObj = JSON.parse(userData);
 
-            // Validasi token sederhana
             if (token.startsWith('siprus-')) {
               const userWithAuth: User = {
-                ...userObj,
+                id: userObj.id || '',
+                email: userObj.email || '',
+                name: userObj.name || '',
+                role: userObj.role || 'mahasiswa',
+                fakultas: userObj.fakultas,
+                jurusan: userObj.jurusan,
+                nim: userObj.nim,
                 isAuthenticated: true
               };
 
               setUser(userWithAuth);
 
-              // Load riwayat peminjaman dari localStorage
               const storedPeminjaman = localStorage.getItem('user_peminjaman');
               let userPeminjaman: Peminjaman[] = [];
 
@@ -338,7 +363,6 @@ export const useAuth = (): {
                 }
               }
 
-              // Jika tidak ada di localStorage, gunakan mock data
               if (userPeminjaman.length === 0 && userObj.email && mockRiwayat[userObj.email]) {
                 userPeminjaman = mockRiwayat[userObj.email];
               }
@@ -360,7 +384,6 @@ export const useAuth = (): {
     } catch (err) {
       console.error('Error checking auth:', err);
       setError('Gagal memuat data autentikasi');
-      // Jika gagal total, set sebagai tidak terautentikasi tapi jangan crash
       setUser(null);
       setRiwayatPeminjaman([]);
     } finally {
@@ -381,45 +404,44 @@ export const useAuth = (): {
     return () => window.removeEventListener('storage', handleStorageChange);
   }, [checkAuth]);
 
-  // Login function menggunakan API
+  // Login function
   const login = async (email: string, password: string): Promise<{ success: boolean; message?: string }> => {
     try {
       setLoading(true);
       setError(null);
 
-      // Validasi input
       if (!email || !password) {
         throw new Error('Email dan password harus diisi');
       }
 
-      // Validasi format email
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email)) {
         throw new Error('Format email tidak valid');
       }
 
-      // Panggil API login
       const result = await apiLogin({ email, password });
 
       if (!result.success) {
         throw new Error(result.message || 'Login gagal');
       }
 
-      // Simpan token ke localStorage jika ada
       if (result.token) {
         localStorage.setItem('auth_token', result.token);
       }
 
-      // Prepare user data dengan authentication status
       const userWithAuth: User = {
-        ...result.user!,
+        id: result.user?.id?.toString() || '',
+        email: result.user?.email || email,
+        name: result.user?.name || result.user?.name || '',
+        role: (result.user?.role as 'admin' | 'mahasiswa' | 'dosen') || 'mahasiswa',
+        fakultas: (result.user as any)?.fakultas,
+        jurusan: (result.user as any)?.jurusan,
+        nim: (result.user as any)?.nim,
         isAuthenticated: true
       };
 
-      // Simpan user data ke localStorage
       localStorage.setItem('user_data', JSON.stringify(userWithAuth));
 
-      // Load riwayat peminjaman dari localStorage atau mock data
       let userPeminjaman: Peminjaman[] = [];
       const storedPeminjaman = localStorage.getItem('user_peminjaman');
 
@@ -431,12 +453,10 @@ export const useAuth = (): {
         }
       }
 
-      // Jika tidak ada di localStorage, gunakan mock data
       if (userPeminjaman.length === 0 && mockRiwayat[email]) {
         userPeminjaman = mockRiwayat[email];
       }
 
-      // Update state
       setUser(userWithAuth);
       setRiwayatPeminjaman(userPeminjaman);
 
@@ -444,10 +464,7 @@ export const useAuth = (): {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Login gagal';
       setError(errorMessage);
-      return {
-        success: false,
-        message: errorMessage
-      };
+      return { success: false, message: errorMessage };
     } finally {
       setLoading(false);
     }
@@ -456,39 +473,35 @@ export const useAuth = (): {
   // Logout function
   const logout = async (): Promise<void> => {
     try {
-      // Call API logout
       await apiLogout();
-
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('user_data');
-      // Tidak menghapus user_peminjaman agar riwayat tetap tersimpan
-      setUser(null);
-      setRiwayatPeminjaman([]);
-      setError(null);
-
-      // Dispatch event untuk sinkronisasi antar tab
-      window.dispatchEvent(new StorageEvent('storage', {
-        key: 'auth_token',
-        oldValue: localStorage.getItem('auth_token'),
-        newValue: null,
-        url: window.location.href,
-        storageArea: localStorage
-      }));
-
-      window.dispatchEvent(new StorageEvent('storage', {
-        key: 'user_data',
-        oldValue: localStorage.getItem('user_data'),
-        newValue: null,
-        url: window.location.href,
-        storageArea: localStorage
-      }));
     } catch (err) {
-      console.error('Error during logout:', err);
-      setError('Gagal logout');
+      console.error('Error during API logout:', err);
     }
+
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('user_data');
+    setUser(null);
+    setRiwayatPeminjaman([]);
+    setError(null);
+
+    window.dispatchEvent(new StorageEvent('storage', {
+      key: 'auth_token',
+      oldValue: localStorage.getItem('auth_token'),
+      newValue: null,
+      url: window.location.href,
+      storageArea: localStorage
+    }));
+
+    window.dispatchEvent(new StorageEvent('storage', {
+      key: 'user_data',
+      oldValue: localStorage.getItem('user_data'),
+      newValue: null,
+      url: window.location.href,
+      storageArea: localStorage
+    }));
   };
 
-  // Function untuk tambah riwayat peminjaman menggunakan API
+  // Tambah peminjaman
   const tambahPeminjaman = async (data: {
     ruanganId: string;
     namaRuangan: string;
@@ -503,11 +516,7 @@ export const useAuth = (): {
         throw new Error('User tidak terautentikasi');
       }
 
-      console.log('tambahPeminjaman called with data:', data);
-
       const userId = parseInt(user.id);
-      console.log('Parsed userId:', userId, 'from:', user.id);
-
       if (isNaN(userId) || userId <= 0) {
         throw new Error(`ID user tidak valid: ${user.id}`);
       }
@@ -527,11 +536,8 @@ export const useAuth = (): {
         keperluan: data.keperluan
       };
 
-      console.log('API data to be sent:', apiData);
-
       const result = await createPeminjaman(apiData);
 
-      // Map API status to local status
       let localStatus: Peminjaman['status'];
       switch (result.status) {
         case 'confirmed':
@@ -547,12 +553,10 @@ export const useAuth = (): {
           break;
       }
 
-      // Calculate duration
       const startHour = parseInt(data.waktuMulai.split(':')[0]);
       const endHour = parseInt(data.waktuSelesai.split(':')[0]);
       const durasi = endHour - startHour;
 
-      // Convert API response to local format
       const newPeminjaman: Peminjaman = {
         id: result.id_peminjaman.toString(),
         ruangan: result.ruangan?.nama_ruangan || data.namaRuangan,
@@ -563,16 +567,18 @@ export const useAuth = (): {
         keperluan: result.keperluan || '',
         status: localStatus,
         tanggalPengajuan: safeDateFormatSimple(result.created_at),
-        tanggalDisetujui: result.status === 'confirmed' ? safeDateFormatSimple(result.locked_at || result.created_at) : undefined,
-        nomorSurat: result.status === 'confirmed' ? `UNMS/${result.id_peminjaman}/SPR/I/2024` : undefined,
-        jumlahPeserta: 1, // Default value since not provided
+        tanggalDisetujui: result.status === 'confirmed' 
+          ? safeDateFormatSimple(result.locked_at || result.created_at) 
+          : undefined,
+        nomorSurat: result.status === 'confirmed' 
+          ? `UNMS/${result.id_peminjaman}/SPR/I/2024` 
+          : undefined,
+        jumlahPeserta: 1,
         catatan: undefined
       };
 
-      // Update state
       setRiwayatPeminjaman(prev => [newPeminjaman, ...prev]);
 
-      // Simpan ke localStorage untuk cache
       const existingPeminjaman = JSON.parse(localStorage.getItem('user_peminjaman') || '[]');
       const updatedPeminjaman = [newPeminjaman, ...existingPeminjaman];
       localStorage.setItem('user_peminjaman', JSON.stringify(updatedPeminjaman));
@@ -584,23 +590,18 @@ export const useAuth = (): {
     }
   };
 
-  // Function untuk update status peminjaman
+  // Update status peminjaman
   const updateStatusPeminjaman = (id: string, status: Peminjaman['status']): void => {
-    // Update state
     setRiwayatPeminjaman(prev => 
-      prev.map(item => 
-        item.id === id ? { ...item, status } : item
-      )
+      prev.map(item => item.id === id ? { ...item, status } : item)
     );
     
-    // Update localStorage
     const existingPeminjaman = JSON.parse(localStorage.getItem('user_peminjaman') || '[]');
     const updatedPeminjaman = existingPeminjaman.map((item: Peminjaman) =>
       item.id === id ? { ...item, status } : item
     );
     localStorage.setItem('user_peminjaman', JSON.stringify(updatedPeminjaman));
     
-    // Trigger storage event
     window.dispatchEvent(new StorageEvent('storage', {
       key: 'user_peminjaman',
       oldValue: localStorage.getItem('user_peminjaman'),
@@ -610,7 +611,7 @@ export const useAuth = (): {
     }));
   };
 
-  // Function untuk hapus peminjaman
+  // Hapus peminjaman
   const hapusPeminjaman = (id: string): void => {
     setRiwayatPeminjaman(prev => prev.filter(item => item.id !== id));
     
@@ -627,7 +628,7 @@ export const useAuth = (): {
     }));
   };
 
-  // Function untuk mendapatkan statistik
+  // Statistik
   const getStatistik = () => {
     const total = riwayatPeminjaman.length;
     const disetujui = riwayatPeminjaman.filter(r => r.status === 'disetujui' || r.status === 'selesai').length;
@@ -638,23 +639,18 @@ export const useAuth = (): {
     return { total, disetujui, diproses, selesai, ditolak };
   };
 
-  // Function untuk check permission
+  // Check role
   const hasRole = (roles: ('admin' | 'mahasiswa' | 'dosen')[]): boolean => {
     if (!user?.role) return false;
     return roles.includes(user.role);
   };
 
-  // Function untuk check jika user adalah admin
-  const isAdmin = (): boolean => {
-    return user?.role === 'admin';
-  };
-
-  // Function untuk refresh riwayat dari localStorage
+  // Refresh riwayat
   const refreshRiwayat = () => {
     checkAuth();
   };
 
-  // Function untuk mendapatkan peminjaman aktif
+  // Peminjaman aktif
   const getPeminjamanAktif = () => {
     const today = new Date().toISOString().split('T')[0];
     return riwayatPeminjaman.filter(p => 
@@ -662,12 +658,12 @@ export const useAuth = (): {
     );
   };
 
-  // Function untuk mendapatkan peminjaman mendatang
+  // Peminjaman mendatang
   const getPeminjamanMendatang = () => {
     const today = new Date().toISOString().split('T')[0];
     return riwayatPeminjaman.filter(p =>
       (p.status === 'menunggu' || p.status === 'disetujui') && p.tanggal >= today
-    ).slice(0, 5); // Ambil 5 terdekat
+    ).slice(0, 5);
   };
 
   return {
@@ -677,9 +673,9 @@ export const useAuth = (): {
     error,
     riwayatPeminjaman,
     
-    // Status
-    isAuthenticated: user?.isAuthenticated || false,
-    isAdmin: isAdmin(),
+    // Status (✅ sekarang reactive)
+    isAuthenticated,
+    isAdmin,
     
     // Functions
     login,
