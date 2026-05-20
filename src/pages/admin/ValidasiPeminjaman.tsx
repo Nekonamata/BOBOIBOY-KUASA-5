@@ -1,10 +1,10 @@
 // src/pages/admin/ValidasiPeminjaman.tsx
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import Footer from '@/components/Footer';
 import api from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
-import { getAllLaporanPeminjaman, LaporanPeminjamanData } from '@/services/peminjaman.service';
+// import { getAllLaporanPeminjaman, LaporanPeminjamanData } from '@/services/peminjaman.service';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -75,49 +75,13 @@ const ValidasiPeminjaman = () => {
     const fetchPending = async () => {
       try {
         setLoading(true);
-        const response = await api.get('/peminjaman');
-        const allData = response.data || [];
-        
-        // Filter hanya yang menunggu/draft/locked
-        const pending = allData.filter((item: any) => 
-          ['menunggu', 'draft', 'locked'].includes(item.status)
-        );
-        
-        setPendingList(pending);
+        const response = await api.get('/admin/peminjaman/pending');
+        const data = response.data || [];
+
+        setPendingList(data);
       } catch (error) {
         console.error('Error fetching pending:', error);
-        // Data dummy untuk demo
-        const dummyPending: PendingPeminjaman[] = [
-          {
-            id_peminjaman: 101,
-            id_user: 2,
-            nama_user: 'Mahasiswa Demo',
-            nama_ruangan: 'R.203',
-            nama_gedung: 'GKB2',
-            lantai: 2,
-            tanggal: '2026-05-10',
-            jam_mulai: '09:00:00',
-            jam_selesai: '11:00:00',
-            keperluan: 'Diskusi Skripsi',
-            status: 'menunggu',
-            created_at: '2026-05-09 08:30:00'
-          },
-          {
-            id_peminjaman: 102,
-            id_user: 3,
-            nama_user: 'Dosen Demo',
-            nama_ruangan: 'Aula Utama',
-            nama_gedung: 'GKB1',
-            lantai: 1,
-            tanggal: '2026-05-11',
-            jam_mulai: '13:00:00',
-            jam_selesai: '15:00:00',
-            keperluan: 'Seminar Proposal',
-            status: 'draft',
-            created_at: '2026-05-09 09:15:00'
-          },
-        ];
-        setPendingList(dummyPending);
+        setPendingList([]);
       } finally {
         setLoading(false);
       }
@@ -157,8 +121,12 @@ const ValidasiPeminjaman = () => {
       const newStatus = dialogAction === 'approve' ? 'disetujui' : 'ditolak';
       
       // Update via API
-      await api.put(`/peminjaman/${selectedPeminjaman.id_peminjaman}/status`, {
-        status: dialogAction === 'approve' ? 'confirmed' : 'expired'
+      await api.post(`/peminjaman/${selectedPeminjaman.id_peminjaman}/admin-validation`, {
+        action: dialogAction === 'approve' ? 'approve' : 'reject',
+        note: dialogAction === 'approve'
+          ? `Disetujui admin`
+          : `Ditolak admin`,
+        keperluan: selectedPeminjaman.keperluan,
       });
 
       // Hapus dari list pending
